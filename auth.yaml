@@ -3,6 +3,7 @@ config:
     auth_enabled: true
 
 jupyterhub:
+  hub:
     services:
       binder:
         oauth_redirect_uri: "https://notebooks-test.gesis.org/oauth_callback"
