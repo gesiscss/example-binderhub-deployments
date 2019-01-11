@@ -1,0 +1,103 @@
+service:
+  #type: ClusterIP
+  type: NodePort
+  nodePort: 30183
+  annotations:
+    prometheus.io/scrape: 'false'
+
+# deployment
+nodeSelector:
+  staging: worker
+resources:
+  requests:
+    cpu: "0.25"
+    memory: 512Mi
+  limits:
+    cpu: "0.5"
+    memory: 512Mi
+
+dind:
+  enabled: true
+  hostSocketDir: /var/run/dind_auth
+  hostLibDir: /var/lib/dind_auth
+
+imageCleaner:
+  enabled: false
+
+config:
+  BinderHub:
+    debug: true
+    hub_url: https://notebooks-test.gesis.org/jupyter/
+
+    use_registry: true
+    image_prefix: gesiscss/orc-auth-binder-
+    build_image: jupyter/repo2docker:36641f3
+    per_repo_quota: 100
+    build_node_selector:
+      build: workers
+
+cors: &cors
+  allowOrigin: "*"
+
+jupyterhub:
+  custom:
+    cors: *cors
+  debug:
+    enabled: true
+
+  hub:
+    baseUrl: /jupyter/
+    nodeSelector:
+      staging: worker
+    annotations:
+      prometheus.io/scrape: 'false'
+
+    resources:
+      requests:
+        cpu: "0.25"
+        memory: 512Mi
+      limits:
+        cpu: "0.5"
+        memory: 512Mi
+
+    extraConfig:
+      hub_extra: |
+        c.JupyterHub.redirect_to_server = False
+        c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/jupyter/'
+      neverRestart: |
+        c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
+
+  singleuser:
+    nodeSelector:
+      build: workers
+    cpu:
+      guarantee: 0.1
+      limit: 0.5
+    memory:
+      guarantee: 512M
+      limit: 512M
+
+  proxy:
+    nodeSelector:
+      staging: worker
+    # https://zero-to-jupyterhub.readthedocs.io/en/stable/security.html#https
+    https:
+      enablde: false
+      #hosts:
+      #- notebooks-test.gesis.org
+      #letsencrypt:
+      #  contactEmail: kenan.erdogan@gesis.org
+      #type: manual
+    service:
+      #type: ClusterIP
+      type: NodePort
+      nodePorts:
+        http: 30180
+    chp:
+      resources:
+        requests:
+          cpu: "0.1"
+          memory: 256Mi
+        limits:
+          cpu: "0.5"
+          memory: 256Mi
