@@ -5,7 +5,7 @@ config:
 jupyterhub:
     services:
       binder:
-#        oauth_redirect_uri: "https://notebooks-test.gesis.org/oauth_callback"
+        oauth_redirect_uri: "https://notebooks-test.gesis.org/oauth_callback"
         oauth_client_id: "binder-oauth-client-test"
 
     extraConfig:
