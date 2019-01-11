@@ -11,6 +11,12 @@ kubectl create namespace bhub-test-ns
 kubectl create configmap nginx-configmap --from-file=nginx/nginx.conf --namespace=bhub-test-ns
 kubectl apply -f nginx/nginx.yaml --namespace=bhub-test-ns
 
+# plain bhub
+helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-275f286  \
+    --install --namespace=bhub-test-ns \
+    -f config.yaml -f secret.yaml \
+    --wait --force --debug --timeout=1800
+
 # auth
 helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-275f286  \
     --install --namespace=bhub-test-ns \
