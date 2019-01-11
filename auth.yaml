@@ -1,15 +1,12 @@
 config:
   BinderHub:
     auth_enabled: true
-    use_named_servers: false
-
 
 jupyterhub:
     services:
       binder:
 #        oauth_redirect_uri: "https://notebooks-test.gesis.org/oauth_callback"
         oauth_client_id: "binder-oauth-client-test"
-    allowNamedServers: false
 
     extraConfig:
       binder: |
