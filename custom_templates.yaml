@@ -7,7 +7,7 @@ initContainers:
       - --branch=master
       - --depth=1
       - --
-      - https://github.com/gesiscss/auth-binderhub.git
+      - https://github.com/gesiscss/example-binderhub-deployments.git
       - /etc/binderhub/custom
     securityContext:
       runAsUser: 0
