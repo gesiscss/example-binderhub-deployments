@@ -26,7 +26,7 @@ jupyterhub:
     github:
       clientId: "f2637ba74fe83699b7f5"
       callbackUrl: "https://notebooks-test.gesis.org/jupyter/hub/oauth_callback"
-      org_whitelist:
+      orgWhitelist:
         - "gesiscss"
         - "jupyter"
         - "jupyterhub"
