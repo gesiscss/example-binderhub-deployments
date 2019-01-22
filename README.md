@@ -12,25 +12,25 @@ kubectl create configmap nginx-configmap --from-file=nginx/nginx.conf --namespac
 kubectl apply -f nginx/nginx.yaml --namespace=bhub-test-ns
 
 # plain bhub
-helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-d4b724a  \
+helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-a529251  \
     --install --namespace=bhub-test-ns \
     -f config.yaml -f secret.yaml \
     --wait --force --debug --timeout=1800
 
 # auth
-helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-d4b724a  \
+helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-a529251  \
     --install --namespace=bhub-test-ns \
     -f config.yaml -f auth.yaml -f secret.yaml \
     --wait --force --debug --timeout=1800
 
 # auth with named servers
-helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-d4b724a  \
+helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-a529251  \
     --install --namespace=bhub-test-ns \
     -f config.yaml -f auth.yaml -f auth_with_named_servers.yaml -f secret.yaml \
     --wait --force --debug --timeout=1800
 
 # with custom templates
-helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-d4b724a  \
+helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-a529251  \
     --install --namespace=bhub-test-ns \
     -f config.yaml -f custom_templates.yaml -f secret.yaml \
     --wait --force --debug --timeout=1800
