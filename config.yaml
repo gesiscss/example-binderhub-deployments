@@ -1,13 +1,14 @@
 service:
+  annotations:
+    prometheus.io/scrape: 'false'
   #type: ClusterIP
   type: NodePort
   nodePort: 30183
-  annotations:
-    prometheus.io/scrape: 'false'
 
 # deployment
 nodeSelector:
   staging: worker
+
 resources:
   requests:
     cpu: "0.25"
@@ -31,7 +32,7 @@ config:
 
     use_registry: true
     image_prefix: gesiscss/orc-auth-binder-
-    build_image: jupyter/repo2docker:36641f3
+    build_image: jupyter/repo2docker:9766c954
     per_repo_quota: 100
     build_node_selector:
       build: workers
@@ -46,11 +47,20 @@ jupyterhub:
     enabled: true
 
   hub:
+    service:
+      annotations:
+        prometheus.io/scrape: 'false'
     baseUrl: /jupyter/
     nodeSelector:
       staging: worker
-    annotations:
-      prometheus.io/scrape: 'false'
+
+    extraConfig:
+      hub_extra: |
+        c.JupyterHub.redirect_to_server = False
+        c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/jupyter/'
+        c.JupyterHub.cookie_options = dict(secure=True)
+      neverRestart: |
+        c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
 
     resources:
       requests:
@@ -60,34 +70,12 @@ jupyterhub:
         cpu: "0.5"
         memory: 512Mi
 
-    extraConfig:
-      hub_extra: |
-        c.JupyterHub.redirect_to_server = False
-        c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/jupyter/'
-      neverRestart: |
-        c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
-
-  singleuser:
-    nodeSelector:
-      build: workers
-    cpu:
-      guarantee: 0.1
-      limit: 0.5
-    memory:
-      guarantee: 512M
-      limit: 512M
-
   proxy:
     nodeSelector:
       staging: worker
     # https://zero-to-jupyterhub.readthedocs.io/en/stable/security.html#https
     https:
       enablde: false
-      #hosts:
-      #- notebooks-test.gesis.org
-      #letsencrypt:
-      #  contactEmail: kenan.erdogan@gesis.org
-      #type: manual
     service:
       #type: ClusterIP
       type: NodePort
@@ -101,3 +89,13 @@ jupyterhub:
         limits:
           cpu: "0.5"
           memory: 256Mi
+
+  singleuser:
+    nodeSelector:
+      user: workers
+    cpu:
+      guarantee: 0.1
+      limit: 0.5
+    memory:
+      guarantee: 512M
+      limit: 512M

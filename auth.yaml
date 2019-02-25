@@ -26,15 +26,10 @@ jupyterhub:
     github:
       clientId: "f2637ba74fe83699b7f5"
       callbackUrl: "https://notebooks-test.gesis.org/jupyter/hub/oauth_callback"
-      orgWhitelist:
-        - "gesiscss"
-        - "jupyter"
-        - "jupyterhub"
-        - "pangeo-data"
     scopes:
       - "read:user"
     admin:
-      users: ['bitnik']
+      users: ['bitnik', 'arnim']
 
   singleuser:
     cmd: jupyterhub-singleuser

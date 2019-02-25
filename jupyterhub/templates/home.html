@@ -1,0 +1,252 @@
+{% extends "templates/home.html" %}
+
+{% block stylesheet %}
+<meta id="base-url" data-url="/services/binder/">
+<script src="/services/binder/static/dist/bundle.js"></script>
+<link href="/services/binder/static/dist/styles.css" rel="stylesheet"/>
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+{{ super() }}
+{% endblock %}
+
+{% block scripts %}
+    <script src="{{static_url("components/requirejs/require.js") }}" type="text/javascript" charset="utf-8"></script>
+    <script src="{{static_url("components/jquery/dist/jquery.min.js") }}" type="text/javascript" charset="utf-8"></script>
+{#    <script src="{{static_url("components/bootstrap/dist/js/bootstrap.min.js") }}" type="text/javascript" charset="utf-8"></script>#}
+{% endblock %}
+
+{% block main %}
+
+{% set state = user.spawner.get_state() %}
+{% if state %}
+{% set history =  state.get('history', []) %}
+{% if history %}
+<div class="container">
+  <div id="launch_history">
+    <h4>Your Projects</h4>
+    <div class="table-responsive">
+     <table class="table table-striped">
+         <thead>
+         <tr>
+             <th>Repository</th>
+{#             <th>URL</th>#}
+             <th>Commit</th>
+             <th>Last launched</th>
+             <th>Actions</th>
+         </tr>
+         </thead>
+         <tbody>
+            {% for e in history %}
+                <tr>
+{#                    <td>{{ e[0].rstrip('/').split('/')[-1] }}</td>#}
+                    <td><a href="{{ e[0] }}" target="_blank">{{ '/'.join(e[0].rstrip('/').split('://', 1)[-1].split('/', 2)[-2:]) }}</a></td>
+                    <td>{{ e[1][:7] }}</td>
+                    <td>{{ e[2] }}</td>
+                    <td>
+                        {% if (user.running or user.spawner.pending) and loop.index == loop.length %}
+                        {# last element in history is currently running, add Stop button for it #}
+                        <a id="stop" role="button" class="btn btn-sm btn-danger">Stop</a>
+                        {% endif %}
+                        {# add Start button for each element, if user has no server running #}
+                        {# if last element is running, hide Start buttons of all other elements #}
+                        <a role="button"
+                           class="btn btn-sm btn-primary common-start{% if (user.running or user.spawner.pending) and (loop.index != loop.length) %} hidden{% endif %}"
+                           id="start-{{ e[1] }}"
+                           href="{% if (user.running or user.spawner.pending) and (loop.index == loop.length) %}{{ url }}{% else %}#{% endif %}"
+                           data-url="{{ e[0] }}" data-ref="{{ e[1] }}">
+                           {% if (user.running or user.spawner.pending) and (loop.index == loop.length) %}
+                           {# if last element is running, change its text #}
+                           My Server
+                           {% else %}
+                           Start
+                           {% endif %}
+                        </a>
+                        {# TODO add custom jupyterhub handler to delete rep from history and disk. it should redirect back to jhub home. #}
+                        <a id="delete-repo" href="#" title="Delete from history and disk"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></a>
+                     </td>
+                </tr>
+            {% endfor %}
+         </tbody>
+     </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endif %}
+
+<div id="main" class="container">
+  <div class="row form-group"></div>
+  <div class="row form-group"></div>
+  <div class="row">
+{#    <div class="col-lg-10 col-lg-offset-1">#}
+    <div class="col-lg-12">
+    {% block binder_form %}
+    <form id="build-form" class="form jumbotron">
+        <h4 id="form-header" class='row'>Build and launch a repository</h4>
+        <input type="hidden" id="provider_prefix" value="gh"/>
+        <div class="form-group row">
+          <label for="repository">GitHub repo or Gist name or GitLab.com URL</label>
+          <div class="input-group">
+            <input class="form-control" type="text" id="repository" data-lpignore="true" placeholder="GitHub repository name or link"/>
+            <div class="input-group-btn" id="url-type-btn">
+              <button type="button" class="btn btn-secondary dropdown-toggle"
+                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                title="Specify source of repository"
+              >
+              <span id="provider_prefix-selected">
+              GitHub
+              </span>
+              <span class="caret"></span>
+              </button>
+              <ul class="dropdown-menu" id="provider_prefix_sel">
+                <li class="dropdown-item" value="gh"><a href="#">GitHub</a></li>
+                <li class="dropdown-item" value="gist"><a href="#">Gist</a></li>
+                <li class="dropdown-item" value="gl"><a href="#">GitLab.com</a></li>
+                <li class="dropdown-item" value="git"><a href="#">Git repository</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <div class="form-row row">
+          <div class="form-group col-md-4">
+            <label for="ref">Git branch, tag, or commit</label>
+            <input class="form-control" type="text" id="ref" placeholder="master" value="master" readonly/>
+          </div>
+          <div class="form-group col-md-6">
+            <label for="filepath"></label>
+            <div class="input-group">
+              <input class="form-control" type="text" id="filepath"
+                placeholder=""
+              />
+              <div class="input-group-btn" id="url-or-file-btn">
+                <button type="button" class="btn btn-secondary dropdown-toggle"
+                  data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"
+                  title="Specify whether the path to open is a URL or a file"
+                >
+                <span id="url-or-file-selected">
+                {{ 'URL' if urlpath else 'File' }}
+                </span>
+                <span class="caret"></span>
+                </button>
+                <ul class="dropdown-menu">
+                  <li class="dropdown-item"><a href="#">File</a></li>
+                  <li class="dropdown-item"><a href="#">URL</a></li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group col-md-2">
+            <div class="btn-group" id="launch-buttons">
+              <button id="submit" class="btn-submit" type="submit">launch</button>
+            </div>
+          </div>
+        </div>
+
+        <!--url section-->
+        <div class="url row" style="display: none;">
+            <div class="dropdownmenu">
+              <label>Copy the URL below and share your Binder with others:</label>
+            </div>
+            <div class="url-row">
+              <pre id="basic-url-snippet" data-default="Fill in the fields to see a URL for sharing your Binder."></pre>
+              <img class="icon clipboard" src="/services/binder/static/images/copy-icon-black.svg" data-clipboard-target="#basic-url-snippet" alt="Copy to clipboard">
+            </div>
+        </div>
+
+        <div class="badges row" style="display: none;">
+            <div class="dropdownmenu" id="toggle-badge-snippet">
+              <label>Copy the text below, then paste into your README to show a binder badge: <img id="badge" src="/services/binder/static/images/badge_logo.svg"></label>
+              <a id="badge-link"></a>
+              <a href="#" title="show badge snippets"><span id="badge-snippet-caret" class="glyphicon glyphicon-triangle-right"></span></a>
+            </div>
+            <div id="badge-snippets" class="hidden">
+              <!--Markdown section-->
+              <div  class="badge-snippet-row">
+                 <pre id="markdown-badge-snippet" data-default="Fill in the fields to see the markdown badge snippet."></pre>
+                 <img class="icon" src="/services/binder/static/images/markdown-icon.svg">
+                 <img class="icon clipboard"
+                    src="/services/binder/static/images/copy-icon-black.svg"
+                    data-clipboard-target="#markdown-badge-snippet"
+                    alt="Copy markdown link to clipboard">
+              </div>
+              <!--RST section-->
+              <div  class="badge-snippet-row">
+                  <pre id="rst-badge-snippet" data-default="Fill in the fields to see the rST badge snippet."></pre>
+                  <img class="icon" src="/services/binder/static/images/rst-icon.svg">
+                  <img class="icon clipboard" src="/services/binder/static/images/copy-icon-black.svg"
+                    data-clipboard-target="#rst-badge-snippet"
+                    alt="Copy rst link to clipboard">
+              </div>
+            </div>
+        </div>
+
+        <div id="build-progress" class="progress on-build hidden row">
+          <div id="phase-failed" class="progress-bar progress-bar-danger progress-bar-striped hidden" style="width: 100%">
+            Failed
+          </div>
+          <div id="phase-waiting" class="progress-bar progress-bar-danger progress-bar-striped active hidden" style="width: 10%">
+            Waiting
+          </div>
+          <div id="phase-already-built" class="progress-bar progress-bar-warning progress-bar-striped active hidden" style="width: 90%">
+            Already built!
+          </div>
+          <div id="phase-building" class="progress-bar progress-bar-warning progress-bar-striped active hidden" style="width: 40%">
+            Building
+          </div>
+          <div id="phase-pushing" class="progress-bar progress-bar-info progress-bar-striped active hidden" style="width: 40%">
+            Pushing
+          </div>
+          <div id="phase-launching" class="progress-bar progress-bar-success progress-bar-striped active hidden" style="width: 10%">
+            Launching
+          </div>
+        </div>
+
+        <div id="log-container" class="panel panel-default on-build hidden row">
+          <div id="toggle-logs" class="panel-heading">
+            Build logs
+            <button type="button" class="btn btn-link btn-xs pull-right">show</button>
+          </div>
+          <div class="panel-body hidden">
+            <div id="log"></div>
+          </div>
+        </div>
+      </form>
+    {% endblock binder_form %}
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block script %}
+{{ super() }}
+
+<script type="text/javascript">
+// initialize binder form
+indexMain();
+</script>
+
+<script type="text/javascript">
+
+$('#stop').click(function() {
+    // change text from "My Server" to "Start" and make all Start buttons visible
+    $('.common-start').attr('href', '#').text('Start').removeClass('hidden');
+    $(this).text('Stopping');
+});
+
+$('.common-start').click(function(e) {
+    if ($(this).attr('href') === '#') {
+        e.preventDefault();
+        $("#build-form").get(0).scrollIntoView();
+        // fill the binder form with values of selected repo and submit
+        $('#repository').val($(this).data().url);
+        $('#ref').val($(this).data().ref);
+        $('#filepath').val('');
+        $('button#submit').trigger('click');
+        // hide all start buttons
+        $('.common-start').addClass('hidden');
+        return false;
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,98 @@
+config:
+  BinderHub:
+    base_url: /services/binder/
+    hub_url: https://notebooks-test.gesis.org/
+
+    appendix: |
+      USER root
+      ENV BINDER_URL={binder_url}
+      ENV REPO_URL={repo_url}
+      USER $NB_USER
+      RUN pip install nbgitpuller
+      RUN jupyter serverextension enable --py nbgitpuller --sys-prefix
+
+jupyterhub:
+  hub:
+    baseUrl: /
+    image:
+      name: gesiscss/k8s-hub-example
+      tag: "TODO"
+
+    services:
+      binder:
+        url: http://194.95.75.10:30183
+        oauth_redirect_uri: "https://notebooks-test.gesis.org/services/binder/oauth_callback"
+
+    extraConfig:
+      hub_extra: |
+        c.JupyterHub.redirect_to_server = False
+        c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/'
+        c.JupyterHub.cookie_options = dict(secure=True)
+      templates: |
+        c.JupyterHub.template_paths = ['/srv/jhub_custom_templates']
+      binder: |
+        from tornado import gen
+        from kubespawner import KubeSpawner
+
+        class BinderSpawner(KubeSpawner):
+          banned_images = []
+          # allowed_images = []
+          def start(self):
+            if 'image' in self.user_options and \
+              'repo_url' in self.user_options and \
+              'token' in self.user_options:
+              # binder service sets the image spec via user options
+              image = self.user_options['image']
+              # NOTE: user can pass any options through API (without using binder) too
+              if image in self.banned_images or image.split(':')[0] in self.banned_images:
+                self.log.error("Image %s is in banned.", image)
+                raise Exception("Image %s is in banned.", image)
+              self.repo_url = self.user_options['repo_url'].rstrip('/').rstrip('.git')
+              self.ref = image.split(':')[-1]
+            else:
+              # user starts server without binder form (default)
+              # for example via spawn url or by refresing user page when server was stopped
+              # launch latest repo in history
+              state = self.get_state()
+              self.repo_url, self.ref, _ = state['history'][-1]
+
+            #repo_name = self.repo_url.rstrip('/').split('/')[-1]
+            repo_dir = '_'.join(reversed(self.repo_url.replace('https://', '').split('/')))
+            if self.repo_url.endswith('github.com/gesiscss/data_science_image'):
+              self.lifecycle_hooks = {'postStart': {'exec': {'command': ["mkdir", "-p", repo_dir]}}}
+            else:
+              self.lifecycle_hooks = {'postStart': {'exec': {'command': ["gitpuller", self.repo_url, "master", repo_dir]}}}
+            self.notebook_dir = '~/' + repo_dir
+            #self.default_url = '/tree/' + repo_dir
+
+            self.extra_pod_config.update({'restart_policy': 'Never'})
+            return super().start()
+
+          def get_state(self):
+            state_ = self.orm_spawner.state
+            # default default_list is only to use when first login
+            default_list = [['https://github.com/gesiscss/data_science_image', 'master', 'never']]
+            history = state_.get('history', default_list) if state_ else default_list
+            state = super().get_state()
+            state['history'] = history
+            if hasattr(self, 'repo_url') and hasattr(self, 'ref'):
+              from datetime import datetime
+              e = (self.repo_url, self.ref, datetime.utcnow().strftime("%d.%m.%Y %H:%M"))
+              history_ = []
+              for h in history:
+                if h[0] != e[0]:
+                  history_.append(h)
+              history_.append(e)
+              state['history'] = history_[-10:]  # save last 10 launched images
+            if not state['history']:
+              state['history'] = default_list
+            return state
+        c.JupyterHub.spawner_class = BinderSpawner
+
+  singleuser:
+    storage:
+      type: dynamic
+      capacity: 5Gi
+    image:
+      name: gesiscss/singleuser-orc
+      tag: "r2d-e1b414e1"

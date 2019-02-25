@@ -1,3 +1,4 @@
+# clone custom binder templates into a volume
 initContainers:
   - name: git-clone-templates
     image: alpine/git
