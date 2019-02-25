@@ -4,5 +4,5 @@
 FROM jupyterhub/k8s-hub:c83896f
 
 USER root
-COPY jupyterhub_templates /srv/jhub_custom_templates
+COPY templates /srv/jhub_custom_templates
 USER ${NB_USER}
