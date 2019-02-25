@@ -89,6 +89,10 @@ jupyterhub:
             return state
         c.JupyterHub.spawner_class = BinderSpawner
 
+  auth:
+    github:
+      callbackUrl: "https://notebooks-test.gesis.org/hub/oauth_callback"
+
   singleuser:
     storage:
       type: dynamic
