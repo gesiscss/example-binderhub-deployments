@@ -4,6 +4,8 @@ Documentation:
 
 nginx app is needed for the deployment of BinderHub with `kubeadm` on bare-metal. 
 
+[Deplyoment with auth and persistent storage](/jupyterhub/)
+
 Deployment:
 ```bash
 kubectl create namespace bhub-test-ns
