@@ -4,8 +4,6 @@ Documentation:
 
 nginx app is needed for the deployment of BinderHub with `kubeadm` on bare-metal. 
 
-[Deplyoment with auth and persistent storage](/jupyterhub/)
-
 Deployment:
 ```bash
 kubectl create namespace bhub-test-ns
@@ -37,6 +35,8 @@ helm upgrade bhub-test jupyterhub/binderhub --version=0.2.0-6bfd93b  \
     -f config.yaml -f custom_templates.yaml -f secret.yaml \
     --wait --force --debug --timeout=1800
 ```
+
+[Deplyoment with auth and persistent storage](/persistent_storage/)
 
 `secret.yaml` looks like:
 
