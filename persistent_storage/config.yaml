@@ -20,7 +20,7 @@ jupyterhub:
 
     services:
       binder:
-        url: http://194.95.75.10:30183
+        url: http://194.95.75.10:30193
         oauth_redirect_uri: "https://notebooks-test.gesis.org/services/binder/oauth_callback"
 
     extraConfig:

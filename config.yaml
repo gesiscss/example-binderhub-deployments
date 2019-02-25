@@ -3,7 +3,7 @@ service:
     prometheus.io/scrape: 'false'
   #type: ClusterIP
   type: NodePort
-  nodePort: 30183
+  nodePort: 30193
 
 # deployment
 nodeSelector:
@@ -80,7 +80,7 @@ jupyterhub:
       #type: ClusterIP
       type: NodePort
       nodePorts:
-        http: 30180
+        http: 30190
     chp:
       resources:
         requests:
