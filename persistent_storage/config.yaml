@@ -27,7 +27,10 @@ jupyterhub:
       hub_extra: |
         c.JupyterHub.redirect_to_server = False
         c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/'
-        c.JupyterHub.cookie_options = dict(secure=True)
+        if "cookie_options" in c.JupyterHub.tornado_settings:
+          c.JupyterHub.tornado_settings["cookie_options"].update({"secure": True}))
+        else:
+          c.JupyterHub.tornado_settings["cookie_options"] = dict(secure=True)
       templates: |
         c.JupyterHub.template_paths = ['/srv/jhub_custom_templates']
       binder: |
