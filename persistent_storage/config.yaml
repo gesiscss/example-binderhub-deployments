@@ -101,5 +101,6 @@ jupyterhub:
       type: dynamic
       capacity: 5Gi
     image:
+      # https://github.com/gesiscss/data_science_image
       name: gesiscss/singleuser-orc
       tag: "r2d-e1b414e1"
