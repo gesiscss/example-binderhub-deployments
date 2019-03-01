@@ -239,6 +239,24 @@ $('.common-start').click(function(e) {
         e.preventDefault();
         $("#build-form").get(0).scrollIntoView();
         // fill the binder form with values of selected repo and submit
+        var repo_url = $(this).data().url.toLowerCase();
+        var provider_prefix;
+        var provider_prefix_selected;
+        if (repo_url.indexOf('github') !== -1) {
+           provider_prefix = 'gh';
+           provider_prefix_selected = 'GitHub';
+        } else if (repo_url.indexOf('gitlab') !== -1) {
+           provider_prefix = 'gl';
+           provider_prefix_selected = 'GitLab.com';
+        } else if (repo_url.indexOf('gist') !== -1) {
+           provider_prefix = 'gist';
+           provider_prefix_selected = 'Gist';
+        } else {
+           provider_prefix = 'git';
+           provider_prefix_selected = 'Git repository';
+        }
+        $('#provider_prefix').val(provider_prefix);
+        $('#provider_prefix-selected').text(provider_prefix_selected);
         $('#repository').val($(this).data().url);
         $('#ref').val($(this).data().ref);
         $('#filepath').val('');
