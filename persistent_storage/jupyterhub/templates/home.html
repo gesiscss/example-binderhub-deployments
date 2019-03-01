@@ -242,7 +242,7 @@ $('.common-start').click(function(e) {
         var repo_url = $(this).data().url.toLowerCase();
         var provider_prefix;
         var provider_prefix_selected;
-        if (repo_url.indexOf('github') !== -1) {
+        if (repo_url.indexOf('github') !== -1 && repo_url.indexOf('gist.github') === -1) {
            provider_prefix = 'gh';
            provider_prefix_selected = 'GitHub';
         } else if (repo_url.indexOf('gitlab') !== -1) {
