@@ -34,7 +34,7 @@ jupyterhub:
       templates: |
         c.JupyterHub.template_paths = ['/srv/jhub_custom_templates']
       binder: |
-        from tornado import gen
+        from tornado import web
         from kubespawner import KubeSpawner
 
         class BinderSpawner(KubeSpawner):
@@ -45,13 +45,13 @@ jupyterhub:
               'repo_url' in self.user_options and \
               'token' in self.user_options:
               # binder service sets the image spec via user options
-              image = self.user_options['image']
+              self.image = self.user_options['image']
               # NOTE: user can pass any options through API (without using binder) too
-              if image in self.banned_images or image.split(':')[0] in self.banned_images:
-                self.log.error("Image %s is in banned.", image)
-                raise Exception("Image %s is in banned.", image)
+              if self.image in self.banned_images or self.image.split(':')[0] in self.banned_images:
+                self.log.error("Image %s is in banned.", self.image)
+                raise web.HTTPError(400, "Image %s is in banned.", self.image)
               self.repo_url = self.user_options['repo_url'].rstrip('/').rstrip('.git')
-              self.ref = image.split(':')[-1]
+              self.ref = self.image.split(':')[-1]
             else:
               # user starts server without binder form (default)
               # for example via spawn url or by refresing user page when server was stopped
@@ -72,21 +72,21 @@ jupyterhub:
             return super().start()
 
           def get_state(self):
-            state_ = self.orm_spawner.state
+            _state = self.orm_spawner.state
             # default default_list is only to use when first login
             default_list = [['https://github.com/gesiscss/data_science_image', 'master', 'never']]
-            history = state_.get('history', default_list) if state_ else default_list
+            history = _state.get('history', default_list) if _state else default_list
             state = super().get_state()
             state['history'] = history
             if hasattr(self, 'repo_url') and hasattr(self, 'ref'):
               from datetime import datetime
               e = (self.repo_url, self.ref, datetime.utcnow().strftime("%d.%m.%Y %H:%M"))
-              history_ = []
+              _history = []
               for h in history:
                 if h[0] != e[0]:
-                  history_.append(h)
-              history_.append(e)
-              state['history'] = history_[-10:]  # save last 10 launched images
+                  _history.append(h)
+              _history.append(e)
+              state['history'] = _history[-10:]  # save last 10 launched images
             if not state['history']:
               state['history'] = default_list
             return state
