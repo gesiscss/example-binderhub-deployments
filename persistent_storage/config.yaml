@@ -16,7 +16,7 @@ jupyterhub:
     baseUrl: /
     image:
       name: gesiscss/k8s-hub-example
-      tag: "035a7fd"
+      tag: "aef0f00"
 
     services:
       binder:
