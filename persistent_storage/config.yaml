@@ -69,17 +69,17 @@ jupyterhub:
             repo_dir = '_'.join(reversed(self.repo_url.split('/')[-2:]))
             symlink_dir = join(repo_dir, 'PersistentStorage')
             # symlink_cmd: create a symlink to home if directory or symlink with same name does not exist
-            symlink_cmd = f'if [[ -d {symlink_dir} ]]; ' \
-                          f'then echo "directory {symlink_dir} exists"; ' \
-                          f'elif [[ -L {symlink_dir} ]]; ' \
-                          f'then echo "{symlink_dir} is a symlink"; ' \
-                          f'else ln -s ~ {symlink_dir}; fi'
+            symlink_cmd = f"if [[ -d {symlink_dir} ]]; " \
+                          f"then echo 'directory {symlink_dir} exists'; " \
+                          f"elif [[ -L {symlink_dir} ]]; " \
+                          f"then echo '{symlink_dir} is a symlink'; " \
+                          f"else ln -s ~ {symlink_dir}; fi"
             if self.repo_url.endswith('github.com/gesiscss/data_science_image'):
-              command = f'mkdir -p {repo_dir} && ' + symlink_cmd
+              command = f"mkdir -p {repo_dir} && " + symlink_cmd
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
             elif self.user_options.get('run-nbgitpuller', 'true').lower() in ['true', '1']:
               # by default run nbgitpuller
-              command = f'gitpuller {self.repo_url} master {repo_dir} && ' + symlink_cmd
+              command = f"gitpuller {self.repo_url} master {repo_dir} && " + symlink_cmd
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
             else:
               self.lifecycle_hooks = {}
