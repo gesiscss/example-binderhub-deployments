@@ -41,6 +41,7 @@ jupyterhub:
       binder: |
         from tornado import web
         from kubespawner import KubeSpawner
+        from os.path import join
 
         class BinderSpawner(KubeSpawner):
           banned_images = []
@@ -66,13 +67,21 @@ jupyterhub:
 
             #repo_name = self.repo_url.rstrip('/').split('/')[-1]
             repo_dir = '_'.join(reversed(self.repo_url.split('/')[-2:]))
+            symlink_dir = join(repo_dir, 'PersistentStorage')
             if self.repo_url.endswith('github.com/gesiscss/data_science_image'):
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["mkdir", "-p", repo_dir]}}}
             elif self.user_options.get('run-nbgitpuller', 'true').lower() in ['true', '1']:
               # by default run nbgitpuller
-              self.lifecycle_hooks = {'postStart': {'exec': {'command': ["gitpuller", self.repo_url, "master", repo_dir]}}}
+              # command -> run nbgitpuller and create a symlink to home if directory or symlink with same name does not exist
+              command = f'gitpuller {self.repo_url} master {repo_dir}' \
+                        f' && ' \
+                        f'if [[-d {symlink_dir} ]]; ' \
+                        f'then echo "directory {symlink_dir} exists"; ' \
+                        f'elif [[ -L {symlink_dir} ]]; ' \
+                        f'then echo "{symlink_dir} is a symlink"; ' \
+                        f'else ln -s ~ {symlink_dir}; fi'
+              self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
             else:
-              # self.lifecycle_hooks = {'postStart': {'exec': {'command': ["mkdir", "-p", repo_dir]}}}
               self.lifecycle_hooks = {}
             self.notebook_dir = '~/' + repo_dir
             #self.default_url = '/tree/' + repo_dir
