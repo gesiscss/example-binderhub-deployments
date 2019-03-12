@@ -243,13 +243,15 @@ $('.common-start').click(function(e) {
         var repo_url = $(this).data().url.toLowerCase();
         var provider_prefix;
         var provider_prefix_selected;
-        if (repo_url.indexOf('github') !== -1 && repo_url.indexOf('gist.github') === -1) {
+        if (repo_url.indexOf('github.com') !== -1 && repo_url.indexOf('gist.github.com') === -1) {
            provider_prefix = 'gh';
            provider_prefix_selected = 'GitHub';
-        } else if (repo_url.indexOf('gitlab') !== -1) {
+        } else if (repo_url.indexOf('gitlab.com') !== -1) {
+           // gitlab.com
            provider_prefix = 'gl';
            provider_prefix_selected = 'GitLab.com';
-        } else if (repo_url.indexOf('gist') !== -1) {
+        } else if (repo_url.indexOf('gist.github.com') !== -1) {
+           // gist.github.com
            provider_prefix = 'gist';
            provider_prefix_selected = 'Gist';
         } else {
