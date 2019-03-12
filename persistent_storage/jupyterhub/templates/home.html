@@ -83,6 +83,8 @@
     <form id="build-form" class="form jumbotron">
         <h4 id="form-header" class='row'>Build and launch a repository</h4>
         <input type="hidden" id="provider_prefix" value="gh"/>
+{#        <input type="hidden" id="user_options" value="?run-nbgitpuller=True"/>#}
+        <input type="hidden" id="user_options" value=""/>
         <div class="form-group row">
           <label for="repository">GitHub repo or Gist name or GitLab.com URL</label>
           <div class="input-group">
@@ -260,6 +262,7 @@ $('.common-start').click(function(e) {
         }
         $('#provider_prefix').val(provider_prefix);
         $('#provider_prefix-selected').text(provider_prefix_selected);
+        $('#user_options').val('?run-nbgitpuller=False');
         $('#repository').val($(this).data().url);
         $('#ref').val($(this).data().ref);
         $('#filepath').val('');
