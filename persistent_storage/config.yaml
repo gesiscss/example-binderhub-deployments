@@ -69,7 +69,7 @@ jupyterhub:
             repo_dir = '_'.join(reversed(self.repo_url.split('/')[-2:]))
             symlink_dir = join(repo_dir, 'PersistentStorage')
             # symlink_cmd: create a symlink to home if directory or symlink with same name does not exist
-            symlink_cmd = f'if [[-d {symlink_dir} ]]; ' \
+            symlink_cmd = f'if [[ -d {symlink_dir} ]]; ' \
                           f'then echo "directory {symlink_dir} exists"; ' \
                           f'elif [[ -L {symlink_dir} ]]; ' \
                           f'then echo "{symlink_dir} is a symlink"; ' \
