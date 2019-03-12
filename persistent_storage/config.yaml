@@ -60,7 +60,7 @@ jupyterhub:
               self.repo_url, self.ref, _ = state['history'][-1]
 
             #repo_name = self.repo_url.rstrip('/').split('/')[-1]
-            repo_dir = '_'.join(reversed(self.repo_url.replace('https://', '').split('/')))
+            repo_dir = '_'.join(reversed(self.repo_url.split('/')[-2:]))
             if self.repo_url.endswith('github.com/gesiscss/data_science_image'):
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["mkdir", "-p", repo_dir]}}}
             else:
