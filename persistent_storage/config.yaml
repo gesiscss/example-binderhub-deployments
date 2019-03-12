@@ -1,7 +1,12 @@
+image:
+  name: gesiscss/k8s-bhub-example
+  tag: e65942a-2
+
 config:
   BinderHub:
     base_url: /services/binder/
     hub_url: https://notebooks-test.gesis.org/
+    query_parameter_names: ['run-nbgitpuller']
 
     appendix: |
       USER root
@@ -16,7 +21,7 @@ jupyterhub:
     baseUrl: /
     image:
       name: gesiscss/k8s-hub-example
-      tag: "aef0f00"
+      tag: "126be06"
 
     services:
       binder:
@@ -63,8 +68,12 @@ jupyterhub:
             repo_dir = '_'.join(reversed(self.repo_url.split('/')[-2:]))
             if self.repo_url.endswith('github.com/gesiscss/data_science_image'):
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["mkdir", "-p", repo_dir]}}}
-            else:
+            elif self.user_options.get('run-nbgitpuller', 'true').lower() in ['true', '1']:
+              # by default run nbgitpuller
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["gitpuller", self.repo_url, "master", repo_dir]}}}
+            else:
+              # self.lifecycle_hooks = {'postStart': {'exec': {'command': ["mkdir", "-p", repo_dir]}}}
+              self.lifecycle_hooks = {}
             self.notebook_dir = '~/' + repo_dir
             #self.default_url = '/tree/' + repo_dir
 
