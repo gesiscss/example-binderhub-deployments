@@ -42,6 +42,7 @@
                     <td>{{ e[1][:7] }}</td>
                     <td>{{ e[2] }}</td>
                     <td>
+                        <label class="common-update{% if user.running or user.spawner.pending %} hidden{% endif %}"><input type="checkbox" id="update-{{ e[1] }}">Update</label>
                         {% if (user.running or user.spawner.pending) and loop.index == loop.length %}
                         {# last element in history is currently running, add Stop button for it #}
                         <a id="stop" role="button" class="btn btn-sm btn-danger">Stop</a>
@@ -61,7 +62,7 @@
                            {% endif %}
                         </a>
                         {# TODO add custom jupyterhub handler to delete rep from history and disk. it should redirect back to jhub home. #}
-                        <a id="delete-repo" href="#" title="Delete from history and disk"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></a>
+{#                        <a id="delete-{{ e[1] }}" href="#" title="Delete from history and disk"><span class="glyphicon glyphicon-trash" aria-hidden="true"></span></a>#}
                      </td>
                 </tr>
             {% endfor %}
@@ -83,8 +84,7 @@
     <form id="build-form" class="form jumbotron">
         <h4 id="form-header" class='row'>Build and launch a repository</h4>
         <input type="hidden" id="provider_prefix" value="gh"/>
-{#        <input type="hidden" id="user_options" value="?run-nbgitpuller=True"/>#}
-        <input type="hidden" id="user_options" value=""/>
+        <input type="hidden" id="user_options" value="?run-nbgitpuller=True"/>
         <div class="form-group row">
           <label for="repository">GitHub repo or Gist name or GitLab.com URL</label>
           <div class="input-group">
@@ -234,6 +234,7 @@ indexMain();
 $('#stop').click(function() {
     // change text from "My Server" to "Start" and make all Start buttons visible
     $('.common-start').attr('href', '#').text('Start').removeClass('hidden');
+    $('.common-update').removeClass('hidden');
     $(this).text('Stopping');
 });
 
@@ -262,13 +263,20 @@ $('.common-start').click(function(e) {
         }
         $('#provider_prefix').val(provider_prefix);
         $('#provider_prefix-selected').text(provider_prefix_selected);
-        $('#user_options').val('?run-nbgitpuller=False');
+        if ($('#'+$(this).prop('id').replace('start-', 'update-')).prop('checked')) {
+            // update checkbox is checked, so update image and code base
+            $('#user_options').val('?run-nbgitpuller=True');
+            $('#ref').val('master');
+        } else {
+            $('#user_options').val('?run-nbgitpuller=False');
+            $('#ref').val($(this).data().ref);
+        }
         $('#repository').val($(this).data().url);
-        $('#ref').val($(this).data().ref);
         $('#filepath').val('');
         $('button#submit').trigger('click');
         // hide all start buttons
         $('.common-start').addClass('hidden');
+        $('.common-update').addClass('hidden');
         return false;
     }
 });
