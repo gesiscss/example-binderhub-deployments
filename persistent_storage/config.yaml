@@ -1,6 +1,6 @@
 image:
   name: gesiscss/k8s-bhub-example
-  tag: e65942a-2
+  tag: c2a6212-2
 
 config:
   BinderHub:
@@ -21,7 +21,7 @@ jupyterhub:
     baseUrl: /
     image:
       name: gesiscss/k8s-hub-example
-      tag: "126be06"
+      tag: "dd3c9d9"
 
     services:
       binder:
@@ -65,15 +65,18 @@ jupyterhub:
               state = self.get_state()
               self.repo_url, self.ref, _ = state['history'][-1]
 
+            data_folder = 'persistent_storage'  # shared between repos
             #repo_name = self.repo_url.rstrip('/').split('/')[-1]
             repo_dir = '_'.join(reversed(self.repo_url.split('/')[-2:]))
-            symlink_dir = join(repo_dir, 'PersistentStorage')
+            if repo_dir == data_folder:
+              repo_dir += '_'
+            symlink_dir = join(repo_dir, data_folder)
             # symlink_cmd: create a symlink to home if directory or symlink with same name does not exist
             symlink_cmd = f"if [ -d {symlink_dir} ]; " \
                           f"then echo 'directory {symlink_dir} exists'; " \
                           f"elif [ -L {symlink_dir} ]; " \
                           f"then echo '{symlink_dir} is a symlink'; " \
-                          f"else ln -s ~ {symlink_dir}; fi"
+                          f"else ln -s ~/{data_folder} {symlink_dir}; fi"
             if self.repo_url.endswith('github.com/gesiscss/data_science_image'):
               command = f"mkdir -p {repo_dir} && " + symlink_cmd
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
