@@ -76,7 +76,7 @@ jupyterhub:
                           f"then echo 'directory {symlink_dir} exists'; " \
                           f"elif [ -L {symlink_dir} ]; " \
                           f"then echo '{symlink_dir} is a symlink'; " \
-                          f"else mkdir -p {data_folder} && ln -s {data_folder} {symlink_dir}; fi"
+                          f"else mkdir -p ~/{data_folder} && ln -s ~/{data_folder} {symlink_dir}; fi"
             if self.repo_url.endswith('github.com/gesiscss/data_science_image'):
               command = f"mkdir -p {repo_dir} && " + symlink_cmd
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
