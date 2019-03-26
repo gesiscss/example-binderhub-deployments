@@ -112,47 +112,11 @@ jupyterhub:
               state['history'] = default_list
             return state
         c.JupyterHub.spawner_class = BinderSpawner
-      # FIXME this doesnt overwrite the default logout handler
-      extra_handlers: |
-        from urllib.parse import urlencode
-        from jupyterhub.handlers import LogoutHandler
-        # this handler is copied from
-        # https://github.com/jupyterhub/zero-to-jupyterhub-k8s/issues/886#issuecomment-470869625
-        class OIDCLogoutHandler(LogoutHandler):
-          kc_logout_url = 'https://login-test.gesis.org/auth/realms/gesis/protocol/openid-connect/logout'
 
-          def get(self):
-            # redirect to keycloak logout url and redirect back with kc=true parameters
-            # then proceed with the original logout method.
-            logout_kc = self.get_argument('kc', '')
-            if logout_kc != 'true':
-              logout_url = self.request.full_url() + '?kc=true'
-              self.redirect(self.kc_logout_url + '?' + urlencode({ 'redirect_uri' : logout_url}))
-            else:
-              super().get()
-        c.JupyterHub.extra_handlers = [(r'/logout_all', OIDCLogoutHandler),]
-
-        from oauthenticator.generic import GenericOAuthenticator
-        def logout_url(self, base_url):
-          return url_path_join(base_url, 'logout_all')
-        GenericOAuthenticator.logout_url = logout_url
-    extraEnv:
-      OAUTH2_AUTHORIZE_URL: https://login-test.gesis.org/auth/realms/gesis/protocol/openid-connect/auth
-      OAUTH2_TOKEN_URL: https://login-test.gesis.org/auth/realms/gesis/protocol/openid-connect/token
   auth:
-    # https://zero-to-jupyterhub.readthedocs.io/en/latest/authentication.html#openid-connect
-    type: custom
-    custom:
-      className: oauthenticator.generic.GenericOAuthenticator
-      config:
-        login_service: "Test Login"
-        token_url: https://login-test.gesis.org/auth/realms/gesis/protocol/openid-connect/token
-        userdata_url: https://login-test.gesis.org/auth/realms/gesis/protocol/openid-connect/userinfo
-        userdata_method: GET
-        userdata_params: {'state': 'state'}
-        username_key: preferred_username
-    admin:
-      users: ['kenanerdogan@gmail.com', 'arnim.bleier@gmail.com']
+    github:
+      callbackUrl: "https://notebooks-test.gesis.org/hub/oauth_callback"
+
   singleuser:
     storage:
       type: dynamic

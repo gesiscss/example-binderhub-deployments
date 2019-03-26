@@ -10,4 +10,17 @@ helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-6bfd93b  \
     --install --namespace=bhub-example-ns \
     -f config.yaml -f auth.yaml -f persistent_storage/config.yaml -f secret.yaml \
     --wait --force --debug --timeout=1800
+
+# with keycloak
+helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-6bfd93b  \
+    --install --namespace=bhub-example-ns \
+    -f config.yaml -f auth.yaml -f persistent_storage/config.yaml -f persistent_storage/config_keycloak.yaml \
+    -f secret.yaml -f persistent_storage/secret_keycloak.yaml \
+    --wait --force --debug --timeout=1800
+
+# to delete
+kubectl delete -f nginx/nginx.yaml --namespace=bhub-example-ns
+kubectl delete configmap nginx-configmap --namespace=bhub-example-ns
+helm delete --purge bhub-example
+kubectl delete namespace bhub-example-ns
 ```
