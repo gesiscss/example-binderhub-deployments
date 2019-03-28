@@ -252,7 +252,7 @@ require(["jquery", "jhapi"], function($, JHAPI) {
     //$(this).next('label').text('Your server is stopping');
     api.stop_server(user, {
       success: function() {
-        $(this).hide();
+        $("#stop").hide();
         // change text from "My Server" to "Start" and make all Start buttons visible
         $('.common-start').attr('href', '#').text('Start').removeClass('hidden');
         $('.common-update').removeClass('hidden');
