@@ -42,19 +42,22 @@
                     <td>{{ e[1][:7] }}</td>
                     <td>{{ e[2] }}</td>
                     <td>
-                        <label class="common-update{% if user.running or user.spawner.pending %} hidden{% endif %}"><input type="checkbox" id="update-{{ e[1] }}">Update</label>
-                        {% if (user.running or user.spawner.pending) and loop.index == loop.length %}
+                        <label class="common-update{% if user.spawner.active %} hidden{% endif %}" style="font-size: 12px;">
+                            <input type="checkbox" id="update-{{ e[1] }}">Update
+                        </label>
+                        {% if user.running and loop.index == loop.length %}
                         {# last element in history is currently running, add Stop button for it #}
-                        <a id="stop" role="button" class="btn btn-sm btn-danger">Stop</a>
+                        <a id="stop" role="button" class="btn btn-sm btn-danger" data-start="start-{{ e[1] }}">Stop</a>
+{#                        <label style="font-size: 12px;">{% if user.spawner._stop_pending %}Your server is stopping{% endif %}</label>#}
                         {% endif %}
                         {# add Start button for each element, if user has no server running #}
                         {# if last element is running, hide Start buttons of all other elements #}
                         <a role="button"
-                           class="btn btn-sm btn-primary common-start{% if (user.running or user.spawner.pending) and (loop.index != loop.length) %} hidden{% endif %}"
+                           class="btn btn-sm btn-primary common-start{% if user.spawner._stop_pending or (user.spawner.active and loop.index != loop.length) %} hidden{% endif %}"
                            id="start-{{ e[1] }}"
-                           href="{% if (user.running or user.spawner.pending) and (loop.index == loop.length) %}{{ url }}{% else %}#{% endif %}"
+                           href="{% if user.spawner.active and loop.index == loop.length %}{{ url }}{% else %}#{% endif %}"
                            data-url="{{ e[0] }}" data-ref="{{ e[1] }}">
-                           {% if (user.running or user.spawner.pending) and (loop.index == loop.length) %}
+                           {% if user.spawner.active and loop.index == loop.length %}
                            {# if last element is running, change its text #}
                            My Server
                            {% else %}
@@ -222,7 +225,6 @@
 {% endblock %}
 
 {% block script %}
-{{ super() }}
 
 <script type="text/javascript">
 // initialize binder form
@@ -231,12 +233,34 @@ indexMain();
 
 <script type="text/javascript">
 
-$('#stop').click(function() {
-    // change text from "My Server" to "Start" and make all Start buttons visible
-    $('.common-start').attr('href', '#').text('Start').removeClass('hidden');
-    $('.common-update').removeClass('hidden');
-    $(this).text('Stopping');
+require(["jquery", "jhapi"], function($, JHAPI) {
+  "use strict";
+
+  var base_url = window.jhdata.base_url;
+  var user = window.jhdata.user;
+  var api = new JHAPI(base_url);
+
+  $("#stop").click(function() {
+    $(this).text('Stopping')
+           .attr("disabled", true)
+           .attr("title", "Your server is stopping")
+           .click(function() {
+               return false;
+           });
+    // hide next start button
+    $(this).next('a').addClass('hidden');
+    //$(this).next('label').text('Your server is stopping');
+    api.stop_server(user, {
+      success: function() {
+        $(this).hide();
+        // change text from "My Server" to "Start" and make all Start buttons visible
+        $('.common-start').attr('href', '#').text('Start').removeClass('hidden');
+        $('.common-update').removeClass('hidden');
+      }
+    });
+  });
 });
+
 
 $('.common-start').click(function(e) {
     if ($(this).attr('href') === '#') {
