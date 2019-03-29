@@ -109,7 +109,7 @@ jupyterhub:
                 if h[0] != e[0]:
                   _history.append(h)
               _history.append(e)
-              state['history'] = _history[-10:]  # save last 10 launched images
+              state['history'] = _history[-100:]  # save last 100 launched images
             if not state['history']:
               state['history'] = default_list
             return state
