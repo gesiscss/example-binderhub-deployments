@@ -260,6 +260,7 @@ require(["jquery", "jhapi"], function($, JHAPI) {
         // change text from "My Server" to "Start" and make all Start buttons visible
         $('.common-start').attr('href', '#').text('Start').removeClass('hidden');
         $('.common-update').removeClass('hidden');
+        $('.common-reset').removeClass('hidden');
       }
     });
   });
@@ -307,6 +308,7 @@ $('.common-start').click(function(e) {
         // hide all start buttons
         $('.common-start').addClass('hidden');
         $('.common-update').addClass('hidden');
+        $('.common-reset').addClass('hidden');
         return false;
     }
 });
