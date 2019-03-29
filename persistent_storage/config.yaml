@@ -81,10 +81,10 @@ jupyterhub:
               command = f"mkdir -p {repo_dir} && " + symlink_cmd
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
             elif self.user_options.get('reset-repo', 'false').lower() in ['true', '1']:
-              command = f"rm -rf {repo_dir} && mkdir -p {repo_dir} && gitpuller {self.repo_url} master {repo_dir} && " + symlink_cmd
+              command = f"rm -rf {repo_dir} && gitpuller {self.repo_url} master {repo_dir} && " + symlink_cmd
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
             elif self.user_options.get('run-nbgitpuller', 'true').lower() in ['true', '1']:
-              command = f"mkdir -p {repo_dir} && gitpuller {self.repo_url} master {repo_dir} && " + symlink_cmd
+              command = f"gitpuller {self.repo_url} master {repo_dir} && " + symlink_cmd
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
             else:
               self.lifecycle_hooks = {}
