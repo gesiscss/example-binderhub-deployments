@@ -38,12 +38,15 @@
             {% for e in history %}
                 <tr>
 {#                    <td>{{ e[0].rstrip('/').split('/')[-1] }}</td>#}
-                    <td><a href="{{ e[0] }}" target="_blank">{{ '/'.join(e[0].rstrip('/').split('://', 1)[-1].split('/', 2)[-2:]) }}</a></td>
-                    <td>{{ e[1][:7] }}</td>
-                    <td>{{ e[2] }}</td>
-                    <td>
-                        <label class="common-update{% if user.spawner.active %} hidden{% endif %}" style="font-size: 12px;">
-                            <input type="checkbox" id="update-{{ e[1] }}">Update
+                    <td style="vertical-align: middle;"><a href="{{ e[0] }}" target="_blank">{{ '/'.join(e[0].rstrip('/').split('://', 1)[-1].split('/', 2)[-2:]) }}</a></td>
+                    <td style="vertical-align: middle;">{{ e[1][:7] }}</td>
+                    <td style="vertical-align: middle;">{{ e[2] }}</td>
+                    <td style="vertical-align: middle;">
+                        <label class="common-update{% if user.spawner.active %} hidden{% endif %}" style="font-size: 12px; margin-bottom: 0;">
+                            <input type="checkbox" id="update-{{ e[1] }}" style="margin: auto; display: block;">Update
+                        </label>
+                        <label class="common-reset{% if user.spawner.active %} hidden{% endif %}" style="font-size: 12px; margin-bottom: 0;">
+                            <input type="checkbox" id="reset-{{ e[1] }}" style="margin: auto; display: block;">Reset
                         </label>
                         {% if user.running and loop.index == loop.length %}
                         {# last element in history is currently running, add Stop button for it #}
@@ -56,7 +59,8 @@
                            class="btn btn-sm btn-primary common-start{% if user.spawner._stop_pending or (user.spawner.active and loop.index != loop.length) %} hidden{% endif %}"
                            id="start-{{ e[1] }}"
                            href="{% if user.spawner.active and loop.index == loop.length %}{{ url }}{% else %}#{% endif %}"
-                           data-url="{{ e[0] }}" data-ref="{{ e[1] }}">
+                           data-url="{{ e[0] }}" data-ref="{{ e[1] }}"
+                           style="vertical-align: top;">
                            {% if user.spawner.active and loop.index == loop.length %}
                            {# if last element is running, change its text #}
                            My Server
@@ -87,7 +91,7 @@
     <form id="build-form" class="form jumbotron">
         <h4 id="form-header" class='row'>Build and launch a repository</h4>
         <input type="hidden" id="provider_prefix" value="gh"/>
-        <input type="hidden" id="user_options" value="?run-nbgitpuller=True"/>
+        <input type="hidden" id="user_options" value="?run-nbgitpuller=True&reset-repo=False"/>
         <div class="form-group row">
           <label for="repository">GitHub repo or Gist name or GitLab.com URL</label>
           <div class="input-group">
@@ -287,12 +291,14 @@ $('.common-start').click(function(e) {
         }
         $('#provider_prefix').val(provider_prefix);
         $('#provider_prefix-selected').text(provider_prefix_selected);
-        if ($('#'+$(this).prop('id').replace('start-', 'update-')).prop('checked')) {
-            // update checkbox is checked, so update image and code base
-            $('#user_options').val('?run-nbgitpuller=True');
+        // update checkbox is checked, so update image and code base
+        var update = $('#'+$(this).prop('id').replace('start-', 'update-')).prop('checked');
+        // reset checkbox is checked, so reset the code base
+        var reset = $('#'+$(this).prop('id').replace('start-', 'reset-')).prop('checked');
+        $('#user_options').val('?run-nbgitpuller='+update+'&reset-repo='+reset);
+        if (reset || update) {
             $('#ref').val('master');
         } else {
-            $('#user_options').val('?run-nbgitpuller=False');
             $('#ref').val($(this).data().ref);
         }
         $('#repository').val($(this).data().url);
