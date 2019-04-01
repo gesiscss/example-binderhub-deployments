@@ -54,6 +54,9 @@ spec:
         - name: letsencrypt-volume
           mountPath: "/etc/letsencrypt_volume"
           readOnly: true
+        - name: webroot-volume
+          mountPath: "/var/www/html"
+          readOnly: true
       volumes:
       - name: nginx-conf
         configMap:
@@ -61,3 +64,6 @@ spec:
       - name: letsencrypt-volume
         hostPath:
           path: /etc/letsencrypt
+      - name: webroot-volume
+        hostPath:
+          path: /var/www/html
