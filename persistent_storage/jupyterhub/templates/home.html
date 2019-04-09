@@ -297,14 +297,10 @@ require(["jquery", "jhapi"], function($, JHAPI) {
 });
 
 var PROJECTS = {};
-//var PROJECTS_LIST = [];
 for (const p of {{ history|safe }}) {
     PROJECTS[p[1]] = {url: p[0].toLowerCase()};  // p[1] is commit hash
-    //PROJECTS_LIST.push(p[0].toLowerCase());
 }
 Object.freeze(PROJECTS);
-//Object.freeze(PROJECTS_LIST);
-//var PROJECTS_LIMIT = 5;
 
 $('.common-start').click(function(e) {
     if ($(this).attr('href') === '#') {
@@ -406,20 +402,6 @@ $('#delete-confirm').on('click', function (event) {
         }
     });
 });
-
-/*
-$('#build-form').submit(function(e) {
-    console.log(PROJECTS_LIST.length, $('#repository').val());
-    // check if new project and if user has already reached projects limit
-    if (!PROJECTS_LIST.includes($('#repository').val()) && PROJECTS_LIST.length >= PROJECTS_LIMIT) {
-        e.stopImmediatePropagation();
-        alert("No more than " + PROJECTS_LIMIT + " projects is allowed. " +
-              "One must be deleted before a new project can be created.");
-        return false;
-    }
-    return true;
-});
-*/
 </script>
 
 <script type="text/javascript">
