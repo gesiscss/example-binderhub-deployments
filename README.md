@@ -12,28 +12,28 @@ kubectl create configmap nginx-configmap --from-file=nginx/nginx.conf --namespac
 kubectl apply -f nginx/nginx.yaml --namespace=bhub-example-ns
 
 # plain bhub
-helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-6bfd93b  \
+helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-612ade7  \
     --install --namespace=bhub-example-ns \
     -f config.yaml -f secret.yaml \
-    --wait --force --debug --timeout=1800
+    --wait --force --debug --timeout=360
 
 # auth
-helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-6bfd93b  \
+helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-612ade7  \
     --install --namespace=bhub-example-ns \
     -f config.yaml -f auth.yaml -f secret.yaml \
-    --wait --force --debug --timeout=1800
+    --wait --force --debug --timeout=360
 
 # auth with named servers
-helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-6bfd93b  \
+helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-612ade7  \
     --install --namespace=bhub-example-ns \
     -f config.yaml -f auth.yaml -f auth_with_named_servers.yaml -f secret.yaml \
-    --wait --force --debug --timeout=1800
+    --wait --force --debug --timeout=360
 
 # with custom templates
-helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-6bfd93b  \
+helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-612ade7  \
     --install --namespace=bhub-example-ns \
     -f config.yaml -f custom_templates.yaml -f secret.yaml \
-    --wait --force --debug --timeout=1800
+    --wait --force --debug --timeout=360
 ```
 
 [Deplyoment with auth and persistent storage](/persistent_storage/)
