@@ -1,6 +1,6 @@
 image:
   name: gesiscss/k8s-bhub-example
-  tag: c2a6212-2
+  tag: 55c296b
 
 config:
   BinderHub:
@@ -18,10 +18,13 @@ config:
 
 jupyterhub:
   hub:
+    # increase to 10 in order to decrease hub restarts
+    # because informative errors from spawner also increases failure_count
+    consecutiveFailureLimit: 10
     baseUrl: /
     image:
       name: gesiscss/k8s-hub-example
-      tag: "643f52b"
+      tag: ""
 
     services:
       binder:
@@ -36,6 +39,9 @@ jupyterhub:
           c.JupyterHub.tornado_settings["cookie_options"].update({"secure": True})
         else:
           c.JupyterHub.tornado_settings["cookie_options"] = dict(secure=True)
+        c.JupyterHub.tornado_settings['slow_spawn_timeout']= 10
+      neverRestart: |
+        c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
       templates: |
         c.JupyterHub.template_paths = ['/srv/jhub_custom_templates']
       binder: |
@@ -46,75 +52,166 @@ jupyterhub:
         class BinderSpawner(KubeSpawner):
           banned_images = []
           # allowed_images = []
+
+          def strip_repo_url(self, repo_url):
+              return repo_url.lstrip("http://").lstrip("https://").rstrip('.git').rstrip('/')
+
+          def url_to_dir(self, url):
+            url = self.strip_repo_url(url)
+            return '_'.join(reversed(url.split('/')[-2:]))
+
           def start(self):
+            # clean attributes
+            if hasattr(self, 'repo_url'):
+              delattr(self, 'repo_url')
+            if hasattr(self, 'ref'):
+              delattr(self, 'ref')
+
+            # get last saved state
+            self.clean_delete_list = False
+            state = self.get_state()
+
+            # get image spec from user_options
             if 'image' in self.user_options and \
               'repo_url' in self.user_options and \
               'token' in self.user_options:
+              # check if user has reached to projects limit
+              # NOTE this must be checked before self.repo_url and self.ref are set!
+              repo_url = self.user_options['repo_url'].rstrip('.git').rstrip('/')
+              projects_limit = 11
+              projects_list = [self.strip_repo_url(p[0]) for p in state['history']]
+              if self.strip_repo_url(repo_url) not in projects_list and len(state['history']) >= projects_limit:
+                self.log.error("No more than %s projects is allowed. One must be deleted before a new project can be created.", projects_limit)
+                raise web.HTTPError(409, "No more than %s projects is allowed. One must be deleted before a new project can be created.", projects_limit)
+
               # binder service sets the image spec via user options
               self.image = self.user_options['image']
               # NOTE: user can pass any options through API (without using binder) too
               if self.image in self.banned_images or self.image.split(':')[0] in self.banned_images:
                 self.log.error("Image %s is in banned.", self.image)
-                raise web.HTTPError(400, "Image %s is in banned.", self.image)
-              self.repo_url = self.user_options['repo_url'].rstrip('/').rstrip('.git')
+                raise web.HTTPError(409, "Image %s is in banned.", self.image)
+              self.repo_url = repo_url
               self.ref = self.image.split(':')[-1]
             else:
               # user starts server without binder form (default)
               # for example via spawn url or by refresing user page when server was stopped
               # launch latest repo in history
-              state = self.get_state()
               self.repo_url, self.ref, _ = state['history'][-1]
 
-            data_folder = 'persistent_storage'  # shared between repos
-            #repo_name = self.repo_url.rstrip('/').split('/')[-1]
-            repo_dir = '_'.join(reversed(self.repo_url.split('/')[-2:]))
+            # prepare postStart command
+            # get list of projects to be deleted from disk just after spawn
+            delete_list = state.get('delete_list', [])
+            if "nothing" in delete_list:
+              delete_list.remove("nothing")
+            delete_cmd = f"rm -rf {' '.join(['~/'+self.url_to_dir(d) for d in delete_list])}" if delete_list else "echo 'No delete'"
+
+            data_folder = '~/shared_storage'  # shared between projects of user
+            repo_dir = '~/'+self.url_to_dir(self.repo_url)
             if repo_dir == data_folder:
               repo_dir += '_'
-            symlink_dir = join(repo_dir, data_folder)
-            # symlink_cmd: create a symlink to ~/{data_folder} if directory or symlink with same name does not exist
+            symlink_dir = join(repo_dir, data_folder[2:])
+            # symlink_cmd: create a symlink to {data_folder} if directory or symlink with same name does not exist
             symlink_cmd = f"if [ -d {symlink_dir} ]; " \
                           f"then echo 'directory {symlink_dir} exists'; " \
                           f"elif [ -L {symlink_dir} ]; " \
                           f"then echo '{symlink_dir} is a symlink'; " \
-                          f"else mkdir -p ~/{data_folder} && ln -s ~/{data_folder} {symlink_dir}; fi"
+                          f"else mkdir -p {data_folder} && ln -s {data_folder} {symlink_dir}; fi"
+            gitpuller_cmd = f"gitpuller {self.repo_url} master {repo_dir}"
+            reset_folder = self.user_options.get('reset-repo', 'false').lower() in ['true', '1']
+            # FIXME: PostStart -> This hook executes immediately after a container is created.
+            # However, there is no guarantee that the hook will execute before the container ENTRYPOINT.
+            # thats why sometimes we get error from SingleUserNotebookApp when launching a repo for the first time:
+            # "No such notebook dir: '/home/jovyan/{repo_dir}'",
             if self.repo_url.endswith('github.com/gesiscss/data_science_image'):
-              command = f"mkdir -p {repo_dir} && " + symlink_cmd
+              if reset_folder:
+                command = " && ".join([delete_cmd, f"rm -rf {repo_dir}", f"mkdir -p {repo_dir}", symlink_cmd])
+              else:
+                command = " && ".join([delete_cmd, f"mkdir -p {repo_dir}", symlink_cmd])
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
-            elif self.user_options.get('reset-repo', 'false').lower() in ['true', '1']:
-              command = f"rm -rf {repo_dir} && gitpuller {self.repo_url} master {repo_dir} && " + symlink_cmd
+            elif reset_folder:
+              command = " && ".join([delete_cmd, f"rm -rf {repo_dir}", gitpuller_cmd, symlink_cmd])
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
             elif self.user_options.get('run-nbgitpuller', 'true').lower() in ['true', '1']:
-              command = f"gitpuller {self.repo_url} master {repo_dir} && " + symlink_cmd
+              command = " && ".join([delete_cmd, gitpuller_cmd, symlink_cmd])
               self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
             else:
-              self.lifecycle_hooks = {}
-            self.notebook_dir = '~/' + repo_dir
-            #self.default_url = '/tree/' + repo_dir
+              self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", delete_cmd]}}} if delete_list else {}
+            self.notebook_dir = repo_dir
 
-            self.extra_pod_config.update({'restart_policy': 'Never'})
+            self.clean_delete_list = True
             return super().start()
 
           def get_state(self):
             _state = self.orm_spawner.state
-            # default default_list is only to use when first login
-            default_list = [['https://github.com/gesiscss/data_science_image', 'master', 'never']]
-            history = _state.get('history', default_list) if _state else default_list
+            # default_history is only to use when first login
+            default_history = [['https://github.com/gesiscss/data_science_image', 'master', 'never']]
+            history = _state.get('history', default_history) if _state else default_history
+            default_delete_list = ["nothing"]
+            delete_list = _state.get('delete_list', default_delete_list) if _state else default_delete_list
             state = super().get_state()
             state['history'] = history
+            state['delete_list'] = delete_list
             if hasattr(self, 'repo_url') and hasattr(self, 'ref'):
               from datetime import datetime
-              e = (self.repo_url, self.ref, datetime.utcnow().strftime("%d.%m.%Y %H:%M"))
+              e = [self.repo_url, self.ref, datetime.utcnow().strftime("%d.%m.%Y %H:%M")]
               _history = []
               for h in history:
                 if h[0] != e[0]:
                   _history.append(h)
               _history.append(e)
-              state['history'] = _history[-100:]  # save last 100 launched images
+              state['history'] = _history
             if not state['history']:
-              state['history'] = default_list
+              state['history'] = default_history
+            if not state['delete_list'] or (hasattr(self, 'clean_delete_list') and self.clean_delete_list is True):
+              state['delete_list'] = default_delete_list
             return state
         c.JupyterHub.spawner_class = BinderSpawner
+      extra_handlers: |
+        import json
+        from tornado.escape import json_decode
+        from jupyterhub.handlers import BaseHandler
+        class ProjectDeletionHandler(BaseHandler):
+        
+            def strip_repo_url(self, repo_url):
+                return repo_url.lstrip("http://").lstrip("https://").rstrip('.git').rstrip('/')
 
+            @web.authenticated
+            def post(self):
+                response_to_send = {}
+                user = self.current_user
+                if user.running:
+                    response_to_send["error"] = "Project deletion is not allowed while user server is running."
+                else:
+                    json_obj = json_decode(self.request.body)
+                    if "repo_url" in json_obj and "name" in json_obj and "id" in json_obj:
+                        repo_url = self.strip_repo_url(json_obj["repo_url"])
+                        delete_on_disk = json_obj.get("delete_on_disk", False)
+                        state = user.spawner.get_state()
+                        history = []
+                        delete_list = []
+                        found = False
+                        for project in state.get("history", []):
+                            if repo_url != self.strip_repo_url(project[0]):
+                                history.append(project)
+                            else:
+                              found = True
+                              if delete_on_disk is True and repo_url not in delete_list:
+                                  delete_list.append(repo_url)
+                        if found is True:
+                            state["history"] = history
+                            state["delete_list"].extend(delete_list)
+                            user.spawner.orm_spawner.state = state
+                            self.db.commit()
+
+                            response_to_send["success"] = f"Project {json_obj['name']} is deleted."
+                            response_to_send["id"] = json_obj["id"]
+                        else:
+                            response_to_send["error"] = f"Project {json_obj['name']} ({json_obj['repo_url']}) doesn't exist."
+                    else:
+                        response_to_send["error"] = "Bad request."
+                self.write(json.dumps(response_to_send))
+
+        c.JupyterHub.extra_handlers = [(r'/delete_project', ProjectDeletionHandler),]
   auth:
     github:
       callbackUrl: "https://notebooks-test.gesis.org/hub/oauth_callback"
@@ -126,4 +223,4 @@ jupyterhub:
     image:
       # https://github.com/gesiscss/data_science_image
       name: gesiscss/singleuser-orc
-      tag: "r2d-e1b414e1"
+      tag: "r2d-91fe4c6"
