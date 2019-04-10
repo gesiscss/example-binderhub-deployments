@@ -14,17 +14,12 @@
 {#    <script src="{{static_url("components/bootstrap/dist/js/bootstrap.min.js") }}" type="text/javascript" charset="utf-8"></script>#}
 {% endblock %}
 
-{% set state = user.spawner.get_state() %}
-{% if state %}
-{% set history =  state.get('history', []) %}
-{% else %}
-{% set history =  [] %}
-{% endif %}
+{% set projects = user.spawner.get_state_field('projects') %}
 
 {% block main %}
-{% if history %}
+{% if projects %}
 <div class="container">
-  <div id="launch_history">
+  <div>
     <h4>Your Projects</h4>
     <div class="table-responsive">
      <table id="your-projects" class="table table-striped">
@@ -38,50 +33,38 @@
          </tr>
          </thead>
          <tbody>
-            {% for e in history %}
-                <tr>
-{#                    <td>{{ e[0].rstrip('/').split('/')[-1] }}</td>#}
-                    {% set repo_display_name = '/'.join(e[0].rstrip('/').split('://', 1)[-1].split('/', 2)[-2:]) %}
-                    {% set is_defaul_image = e[0].rstrip('/').endswith('github.com/gesiscss/data_science_image') %}
-                    <td style="vertical-align: middle;"><a href="{{ e[0] }}" target="_blank">{{ repo_display_name }}</a></td>
-                    <td style="vertical-align: middle;">{{ e[1][:7] }}</td>
-                    <td style="vertical-align: middle;">{{ e[2] }}</td>
-                    <td style="vertical-align: middle;">
-                        <label class="common-update{% if user.spawner.active %} hidden{% endif %}" style="font-size: 12px; margin-bottom: 0;">
-                            <input type="checkbox" id="update-{{ e[1] }}" style="margin: auto; display: block;">Update
-                        </label>
-                        <label class="common-reset{% if user.spawner.active %} hidden{% endif %}" style="font-size: 12px; margin-bottom: 0;">
-                            <input type="checkbox" id="reset-{{ e[1] }}" style="margin: auto; display: block;">Reset
-                        </label>
-                        {% if user.running and loop.index == loop.length %}
-                        {# last element in history is currently running, add Stop button for it #}
-                        <a id="stop" role="button" class="btn btn-sm btn-danger">Stop</a>
-{#                        <label style="font-size: 12px;">{% if user.spawner._stop_pending %}Your server is stopping{% endif %}</label>#}
-                        {% endif %}
-                        {# add Start button for each element, if user has no server running #}
-                        {# if last element is running, hide Start buttons of all other elements #}
-                        <a role="button"
-                           class="btn btn-sm btn-primary common-start{% if user.spawner._stop_pending or (user.spawner.active and loop.index != loop.length) %} hidden{% endif %}"
-                           id="start-{{ e[1] }}"
-                           href="{% if user.spawner.active and loop.index == loop.length %}{{ url }}{% else %}#{% endif %}"
-                           style="vertical-align: top;">
-                           {% if user.spawner.active and loop.index == loop.length %}
-                           {# if last element is running, change its text #}
-                           My Server
-                           {% else %}
-                           Start
-                           {% endif %}
-                        </a>
-                        {% if not is_defaul_image %}
-                        <a id="delete-{{ e[1] }}" class="common-delete{% if user.spawner.active %} hidden{% endif %}"
-                           href="#" title="Delete from projects list and persistent storage"
-                           data-name="{{ repo_display_name }}"
-                           data-toggle="modal" data-target="#delete-project">
-                            <span class="glyphicon glyphicon-trash" aria-hidden="true"></span>
-                        </a>
-                        {% endif %}
-                     </td>
-                </tr>
+            {% for project in projects %}
+            <tr>
+                {% set repo_display_name = '/'.join(project[0].rstrip('/').split('://', 1)[-1].split('/', 2)[-2:]) %}
+                <td style="vertical-align: middle;"><a href="{{ project[0] }}" target="_blank">{{ repo_display_name }}</a></td>
+                <td style="vertical-align: middle;">{{ project[1][:7] }}</td>
+                <td style="vertical-align: middle;">{{ project[2] }}</td>
+                <td style="vertical-align: middle;">
+                    {% set project_running = user.running and loop.index == loop.length %}
+                    {% set project_active = user.spawner.active and loop.index == loop.length %}
+                    {% set project_not_active = user.spawner._stop_pending or (user.spawner.active and loop.index != loop.length) %}
+                    {% if project_running %}
+                    {# last element in projects is currently running, add Stop button for it #}
+                    <a id="stop" role="button" class="btn btn-sm btn-danger">Stop</a>
+                    {% endif %}
+                    {# add launch button for each element, if user has no server running #}
+                    {# if last element is running, hide launch buttons of all other elements #}
+                    <a role="button" id="launch-{{ project[1] }}"
+                       class="project-launch btn btn-sm {% if project_active %}btn-primary{% else %}btn-warning{% endif %}{% if project_not_active %} hidden{% endif %}"
+                       href="{% if project_active %}{{ url }}{% else %}#{% endif %}"
+                       data-last="{{ project[2] }}"
+                       style="vertical-align: top;">
+                       {% if project_active %}My Server{% else %}Launch{% endif %}
+                    </a>
+                    <a role="button" id="delete-{{ project[1] }}"
+                       class="project-delete btn btn-sm btn-danger{% if user.spawner.active %} hidden{% endif %}"
+                       href="#" title="Delete from projects list and persistent storage"
+                       data-name="{{ repo_display_name }}"
+                       data-toggle="modal" data-target="#delete-project">
+                       Delete
+                    </a>
+                 </td>
+            </tr>
             {% endfor %}
          </tbody>
      </table>
@@ -95,13 +78,13 @@
           <button id="delete-close" type="button" class="close" data-dismiss="modal" aria-label="Close"><span aria-hidden="true">&times;</span></button>
           <h4 class="modal-title" id="delete-project-label">Delete a project</h4>
         </div>
-        <div class="modal-body">
+        <div class="modal-body" id="delete-project-body">
           <span id="delete-project-text">Are you sure that you want to delete the project?</span>
           <br>
           <label style="font-weight: normal;"><input type="checkbox" id="delete-on-disk"> Delete the project also on my persistent storage.</label>
           <input type="hidden" id="delete-ref" value=""/>
-          <input type="hidden" id="delete-name" value=""/>
           <input type="hidden" id="delete-id" value=""/>
+          <input type="hidden" id="delete-name" value=""/>
         </div>
         <div id="delete-project-success" class="alert alert-success hidden"></div>
         <div id="delete-project-error" class="alert alert-danger hidden"></div>
@@ -125,7 +108,7 @@
     <form id="build-form" class="form jumbotron">
         <h4 id="form-header" class='row'>Build and launch a new repository</h4>
         <input type="hidden" id="provider_prefix" value="gh"/>
-        <input type="hidden" id="user_options" value="?run-nbgitpuller=True&reset-repo=False"/>
+        <input type="hidden" id="user_options" value="?run-nbgitpuller=True"/>
         <div class="form-group row">
           <label for="repository">GitHub repo or Gist name or GitLab.com URL</label>
           <div class="input-group">
@@ -280,34 +263,31 @@ require(["jquery", "jhapi"], function($, JHAPI) {
            .click(function() {
                return false;
            });
-    // hide next start button
+    // hide next launch button
     $(this).next('a').addClass('hidden');
-    //$(this).next('label').text('Your server is stopping');
     api.stop_server(user, {
       success: function() {
         $("#stop").hide();
-        // change text from "My Server" to "Start" and make all Start buttons visible
-        $('.common-start').attr('href', '#').text('Start').removeClass('hidden');
-        $('.common-update').removeClass('hidden');
-        $('.common-reset').removeClass('hidden');
-        $('.common-delete').removeClass('hidden');
+        // change text from "My Server" to "Launch" and make all launch buttons visible
+        $('.project-launch').attr('href', '#').text('Launch').removeClass('btn-primary').addClass('btn-warning').removeClass('hidden');
+        $('.project-delete').removeClass('hidden');
       }
     });
   });
 });
 
 var PROJECTS = {};
-for (const p of {{ history|safe }}) {
+for (const p of {{ projects|safe }}) {
     PROJECTS[p[1]] = {url: p[0].toLowerCase()};  // p[1] is commit hash
 }
 Object.freeze(PROJECTS);
 
-$('.common-start').click(function(e) {
+$('.project-launch').click(function(e) {
     if ($(this).attr('href') === '#') {
         e.preventDefault();
         $("#build-form").get(0).scrollIntoView();
         // fill the binder form with values of selected repo and submit
-        var ref = $(this).prop('id').replace("start-","");
+        var ref = $(this).prop('id').replace("launch-","");
         var repo_url = PROJECTS[ref].url;
         var provider_prefix;
         var provider_prefix_selected;
@@ -328,72 +308,80 @@ $('.common-start').click(function(e) {
         }
         $('#provider_prefix').val(provider_prefix);
         $('#provider_prefix-selected').text(provider_prefix_selected);
-        // update checkbox is checked, so update image and code base
-        var update = $('#update-'+ref).prop('checked');
-        // reset checkbox is checked, so reset the code base
-        var reset = $('#reset-'+ref).prop('checked');
-        $('#user_options').val('?run-nbgitpuller='+update+'&reset-repo='+reset);
-        if (reset || update) {
-            $('#ref').val('master');
-        } else {
-            $('#ref').val(ref);
-        }
+        $('#ref').val(ref);
         $('#repository').val(repo_url);
         $('#filepath').val('');
+        if ($(this).data('last') === "never") {
+            // if never launched (default repo)
+            $('#user_options').val('?run-nbgitpuller=True');
+        } else {
+            $('#user_options').val('?run-nbgitpuller=False');
+        }
         $('button#submit').trigger('click');
-        // hide all start buttons
-        $('.common-start').addClass('hidden');
-        $('.common-update').addClass('hidden');
-        $('.common-reset').addClass('hidden');
-        $('.common-delete').addClass('hidden');
+        // hide all launch and delete buttons
+        $('.project-launch').addClass('hidden');
+        $('.project-delete').addClass('hidden');
         return false;
     }
 });
 
-$('.common-delete').on('click', function (event) {
-  $('#delete-cancel').text("No");
-  $('#delete-confirm').removeClass("hidden");
-  $('#delete-on-disk').prop("checked", false);
-  $('#delete-project-success').text('').addClass("hidden");
-  $('#delete-project-error').text('').addClass("hidden");
-  var button = $(this);
-  var ref = button.prop('id').replace("delete-","");
-  $('#delete-ref').val(ref);
-  $('#delete-id').val(button.prop('id'));
-  var project_name = button.data('name');
-  $('#delete-name').val(project_name);
-  $('#delete-project-label').text('Delete project ' + project_name);
-  $('#delete-project-text').text('Are you sure that you want to delete "' + project_name +'" project?');
+$('.project-delete').on('click', function (event) {
+    // reset parts of dialog
+    $('#delete-project-body').children().removeClass("hidden");
+    $('#delete-cancel').text("No");
+    $('#delete-confirm').removeClass("hidden");
+    $('#delete-on-disk').prop("checked", false);
+    $('#delete-project-success').text('').addClass("hidden");
+    $('#delete-project-error').text('').addClass("hidden");
+    // fill hidden inputs, they will be used in ajax call to delete project
+    var button = $(this);
+    var ref = button.prop('id').replace("delete-","");
+    $('#delete-ref').val(ref);  // to get repo url
+    $('#delete-id').val(button.prop('id'));  // this will be used success of ajax call to delete project row from table
+    var project_name = button.data('name');
+    $('#delete-name').val(project_name);
+    // update text in confirm dialog
+    $('#delete-project-label').text('Delete project ' + project_name);
+    $('#delete-project-text').text('Are you sure that you want to delete "' + project_name +'" project?');
 });
 
 $('#delete-confirm').on('click', function (event) {
     var ref = $('#delete-ref').val();
     var repo_url = PROJECTS[ref].url;
-    var dataToSend = JSON.stringify({repo_url: repo_url,
+    var data_to_send = JSON.stringify({repo_url: repo_url,
                                      delete_on_disk: $('#delete-on-disk').prop("checked"),
                                      name: $('#delete-name').val(),
                                      id: $('#delete-id').val()});
     var url = '/hub/delete_project';
-    console.log(ref, url, dataToSend);
+    console.log(ref, url, data_to_send);
     $.ajax({
         url: url,
         type: 'POST',
-        data: dataToSend,
-        success: function (jsonResponse) {
-            var objresponse = JSON.parse(jsonResponse);
-            if ("error" in objresponse) {
+        data: data_to_send,
+        success: function (json_response) {
+            var response = JSON.parse(json_response);
+            if ("error" in response) {
+                // show error message
+                $('#delete-project-body').children().addClass("hidden");
                 $('#delete-project-success').text('').addClass("hidden");
-                $('#delete-project-error').text(objresponse['error']).removeClass("hidden");
-            } else {
-                $('#delete-project-error').text('').addClass("hidden");
-                $('#delete-project-success').text(objresponse['success']).removeClass("hidden");
+                $('#delete-project-error').text(response['error']).removeClass("hidden");
+                // show only OK button, user should handle the error first
                 $('#delete-cancel').text("Okay");
                 $('#delete-confirm').addClass("hidden");
+            } else {
+                // show success message
+                $('#delete-project-body').children().addClass("hidden");
+                $('#delete-project-error').text('').addClass("hidden");
+                $('#delete-project-success').text(response['success']).removeClass("hidden");
+                // project is deleted, so leave just an OK button to close the modal
+                $('#delete-cancel').text("Okay");
+                $('#delete-confirm').addClass("hidden");
+                // reset hidden inputs
                 $('#delete-ref').val('');
                 $('#delete-name').val('');
                 $('#delete-id').val('');
                 //$('#delete-close').trigger('click');
-                $("#"+objresponse["id"]).closest('tr').remove();
+                $("#"+response["id"]).closest('tr').remove();
             }
             },
         error: function () {

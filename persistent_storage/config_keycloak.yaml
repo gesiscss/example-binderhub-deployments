@@ -35,6 +35,7 @@ jupyterhub:
 
             @web.authenticated
             def post(self):
+                # https://github.com/zhanglongqi/TornadoAJAXSample
                 response_to_send = {}
                 user = self.current_user
                 if user.running:
@@ -45,18 +46,18 @@ jupyterhub:
                         repo_url = self.strip_repo_url(json_obj["repo_url"])
                         delete_on_disk = json_obj.get("delete_on_disk", False)
                         state = user.spawner.get_state()
-                        history = []
+                        projects = []
                         delete_list = []
                         found = False
-                        for project in state.get("history", []):
+                        for project in state.get("projects", []):
                             if repo_url != self.strip_repo_url(project[0]):
-                                history.append(project)
+                                projects.append(project)
                             else:
                               found = True
                               if delete_on_disk is True and repo_url not in delete_list:
                                   delete_list.append(repo_url)
                         if found is True:
-                            state["history"] = history
+                            state["projects"] = projects
                             state["delete_list"].extend(delete_list)
                             user.spawner.orm_spawner.state = state
                             self.db.commit()

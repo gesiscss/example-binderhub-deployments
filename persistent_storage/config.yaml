@@ -6,7 +6,7 @@ config:
   BinderHub:
     base_url: /services/binder/
     hub_url: https://notebooks-test.gesis.org/
-    query_parameter_names: ['run-nbgitpuller', 'reset-repo']
+    query_parameter_names: ['run-nbgitpuller']
 
     appendix: |
       USER root
@@ -24,7 +24,7 @@ jupyterhub:
     baseUrl: /
     image:
       name: gesiscss/k8s-hub-example
-      tag: "7236610"
+      tag: ""
 
     services:
       binder:
@@ -61,15 +61,18 @@ jupyterhub:
             return '_'.join(reversed(url.split('/')[-2:]))
 
           def start(self):
-            # clean attributes
+            # clean attributes, so we dont save wrong values in state when error happens
             if hasattr(self, 'repo_url'):
               delattr(self, 'repo_url')
             if hasattr(self, 'ref'):
               delattr(self, 'ref')
 
-            # get last saved state
-            self.clean_delete_list = False
+            self.reset_delete_list = False
             state = self.get_state()
+            # get last saved projects
+            projects = state['projects']
+            # get list of projects to be deleted from disk just after spawn
+            delete_list = state['delete_list']
 
             # get image spec from user_options
             if 'image' in self.user_options and \
@@ -78,9 +81,9 @@ jupyterhub:
               # check if user has reached to projects limit
               # NOTE this must be checked before self.repo_url and self.ref are set!
               repo_url = self.user_options['repo_url'].rstrip('.git').rstrip('/')
-              projects_limit = 11
-              projects_list = [self.strip_repo_url(p[0]) for p in state['history']]
-              if self.strip_repo_url(repo_url) not in projects_list and len(state['history']) >= projects_limit:
+              projects_limit = 5
+              projects_repo_list = [self.strip_repo_url(p[0]) for p in projects]
+              if self.strip_repo_url(repo_url) not in projects_repo_list and len(projects) >= projects_limit:
                 self.log.error("No more than %s projects is allowed. One must be deleted before a new project can be created.", projects_limit)
                 raise web.HTTPError(409, "No more than %s projects is allowed. One must be deleted before a new project can be created.", projects_limit)
 
@@ -95,75 +98,75 @@ jupyterhub:
             else:
               # user starts server without binder form (default)
               # for example via spawn url or by refresing user page when server was stopped
-              # launch latest repo in history
-              self.repo_url, self.ref, _ = state['history'][-1]
+              # launch last repo in projects
+              self.repo_url, self.ref, _ = projects[-1]
 
             # prepare postStart command
-            # get list of projects to be deleted from disk just after spawn
-            delete_list = state.get('delete_list', [])
-            if "nothing" in delete_list:
-              delete_list.remove("nothing")
-            delete_cmd = f"rm -rf {' '.join(['~/'+self.url_to_dir(d) for d in delete_list])}" if delete_list else "echo 'No delete'"
-
-            data_folder = '~/shared_storage'  # shared between projects of user
+            delete_cmd = f"rm -rf {' '.join(['~/'+self.url_to_dir(d) for d in delete_list])}" if delete_list else ""
+            shared_folder = '~/shared_storage'  # shared folder between projects of user
             repo_dir = '~/'+self.url_to_dir(self.repo_url)
-            if repo_dir == data_folder:
+            if repo_dir == shared_folder:
               repo_dir += '_'
-            symlink_dir = join(repo_dir, data_folder[2:])
-            # symlink_cmd: create a symlink to {data_folder} if directory or symlink with same name does not exist
+            symlink_dir = join(repo_dir, shared_folder[2:])
+            # symlink_cmd: create a symlink to {shared_folder} if directory or symlink with same name does not exist
             symlink_cmd = f"if [ -d {symlink_dir} ]; " \
                           f"then echo 'directory {symlink_dir} exists'; " \
                           f"elif [ -L {symlink_dir} ]; " \
                           f"then echo '{symlink_dir} is a symlink'; " \
-                          f"else mkdir -p {data_folder} && ln -s {data_folder} {symlink_dir}; fi"
+                          f"else mkdir -p {shared_folder} && ln -s {shared_folder} {symlink_dir}; fi"
             gitpuller_cmd = f"gitpuller {self.repo_url} master {repo_dir}"
-            reset_folder = self.user_options.get('reset-repo', 'false').lower() in ['true', '1']
-            # FIXME: PostStart -> This hook executes immediately after a container is created.
+            # NOTE: PostStart -> This hook executes immediately after a container is created.
             # However, there is no guarantee that the hook will execute before the container ENTRYPOINT.
             # thats why sometimes we get error from SingleUserNotebookApp when launching a repo for the first time:
             # "No such notebook dir: '/home/jovyan/{repo_dir}'",
-            if self.repo_url.endswith('github.com/gesiscss/data_science_image'):
-              if reset_folder:
-                command = " && ".join([delete_cmd, f"rm -rf {repo_dir}", f"mkdir -p {repo_dir}", symlink_cmd])
-              else:
-                command = " && ".join([delete_cmd, f"mkdir -p {repo_dir}", symlink_cmd])
-              self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
-            elif reset_folder:
-              command = " && ".join([delete_cmd, f"rm -rf {repo_dir}", gitpuller_cmd, symlink_cmd])
-              self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
-            elif self.user_options.get('run-nbgitpuller', 'true').lower() in ['true', '1']:
-              command = " && ".join([delete_cmd, gitpuller_cmd, symlink_cmd])
-              self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}}
+            if self.user_options.get('run-nbgitpuller', 'true').lower() in ['true', '1']:
+              commands = [delete_cmd, gitpuller_cmd, symlink_cmd] if delete_cmd else [gitpuller_cmd, symlink_cmd]
+              command = " && ".join(commands)
             else:
-              self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", delete_cmd]}}} if delete_list else {}
+              command = delete_cmd
+            self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}} if command else {}
             self.notebook_dir = repo_dir
 
-            self.clean_delete_list = True
+            self.reset_delete_list = True
             return super().start()
+
+          def get_state_field(self, name):
+            # just get current value of a field in state
+            # dont update thing in state
+            self.update_projects = False
+            reset_delete_list = getattr(self, 'reset_delete_list', False)
+            self.reset_delete_list = False
+            state = self.get_state()
+            self.update_projects = True
+            self.reset_delete_list = reset_delete_list
+            return state[name]
 
           def get_state(self):
             _state = self.orm_spawner.state
-            # default_history is only to use when first login
-            default_history = [['https://github.com/gesiscss/data_science_image', 'master', 'never']]
-            history = _state.get('history', default_history) if _state else default_history
-            default_delete_list = ["nothing"]
-            delete_list = _state.get('delete_list', default_delete_list) if _state else default_delete_list
+            # default_projects is only to use when first login
+            default_projects = [['https://github.com/gesiscss/data_science_image', 'master', 'never']]
+            projects = _state.get('projects', []) if _state else default_projects
+            delete_list = _state.get('delete_list', []) if _state else []
+
             state = super().get_state()
-            state['history'] = history
+            state['projects'] = projects
             state['delete_list'] = delete_list
-            if hasattr(self, 'repo_url') and hasattr(self, 'ref'):
+
+            if getattr(self, 'update_projects', True) is True and hasattr(self, 'repo_url') and hasattr(self, 'ref'):
+              # project is started or already running or is stopped,
+              # so move project to the end and update the last launched time (last seen)
               from datetime import datetime
               e = [self.repo_url, self.ref, datetime.utcnow().strftime("%d.%m.%Y %H:%M")]
-              _history = []
-              for h in history:
-                if h[0] != e[0]:
-                  _history.append(h)
-              _history.append(e)
-              state['history'] = _history
-            if not state['history']:
-              state['history'] = default_history
-            if not state['delete_list'] or (hasattr(self, 'clean_delete_list') and self.clean_delete_list is True):
-              state['delete_list'] = default_delete_list
+              _projects = []
+              for p in projects:
+                if p[0] != e[0]:
+                  _projects.append(p)
+              _projects.append(e)
+              state['projects'] = _projects
+
+            if getattr(self, 'reset_delete_list', False) is True:
+              state['delete_list'] = []
+
             return state
         c.JupyterHub.spawner_class = BinderSpawner
       extra_handlers: |
@@ -177,6 +180,7 @@ jupyterhub:
 
             @web.authenticated
             def post(self):
+                # https://github.com/zhanglongqi/TornadoAJAXSample
                 response_to_send = {}
                 user = self.current_user
                 if user.running:
@@ -187,18 +191,18 @@ jupyterhub:
                         repo_url = self.strip_repo_url(json_obj["repo_url"])
                         delete_on_disk = json_obj.get("delete_on_disk", False)
                         state = user.spawner.get_state()
-                        history = []
+                        projects = []
                         delete_list = []
                         found = False
-                        for project in state.get("history", []):
+                        for project in state.get("projects", []):
                             if repo_url != self.strip_repo_url(project[0]):
-                                history.append(project)
+                                projects.append(project)
                             else:
                               found = True
                               if delete_on_disk is True and repo_url not in delete_list:
                                   delete_list.append(repo_url)
                         if found is True:
-                            state["history"] = history
+                            state["projects"] = projects
                             state["delete_list"].extend(delete_list)
                             user.spawner.orm_spawner.state = state
                             self.db.commit()
