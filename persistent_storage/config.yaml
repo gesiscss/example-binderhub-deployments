@@ -40,8 +40,10 @@ jupyterhub:
         else:
           c.JupyterHub.tornado_settings["cookie_options"] = dict(secure=True)
         c.JupyterHub.tornado_settings['slow_spawn_timeout']= 10
+      # set pod restart_policy back to default value OnFailure, because user pod sometimes fails when
+      # PostStart hook doesn't finish first cloning repo before docker entrypoint (start notebook server)
       neverRestart: |
-        c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
+        c.KubeSpawner.extra_pod_config.update({'restart_policy': 'OnFailure'})
       templates: |
         c.JupyterHub.template_paths = ['/srv/jhub_custom_templates']
       binder: |
