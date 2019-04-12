@@ -125,7 +125,7 @@ jupyterhub:
               commands = [delete_cmd, gitpuller_cmd, symlink_cmd] if delete_cmd else [gitpuller_cmd, symlink_cmd]
               command = " && ".join(commands)
             else:
-              // NOTE: dont mkdir -p repo_dir, because nbgitpuller fails with empty dir (non-git dir)
+              # NOTE: dont mkdir -p repo_dir, because nbgitpuller fails with empty dir (non-git dir)
               command = delete_cmd
             self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}} if command else {}
             self.notebook_dir = repo_dir
