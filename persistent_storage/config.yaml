@@ -125,6 +125,7 @@ jupyterhub:
               commands = [delete_cmd, gitpuller_cmd, symlink_cmd] if delete_cmd else [gitpuller_cmd, symlink_cmd]
               command = " && ".join(commands)
             else:
+              // NOTE: dont mkdir -p repo_dir, because nbgitpuller fails with empty dir (non-git dir)
               command = delete_cmd
             self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}} if command else {}
             self.notebook_dir = repo_dir
@@ -158,7 +159,7 @@ jupyterhub:
               # project is started or already running or is stopped,
               # so move project to the end and update the last launched time (last seen)
               from datetime import datetime
-              e = [self.repo_url, self.ref, datetime.utcnow().strftime("%d.%m.%Y %H:%M")]
+              e = [self.repo_url, self.ref, datetime.utcnow().isoformat() + 'Z']
               _projects = []
               for p in projects:
                 if p[0] != e[0]:
@@ -176,7 +177,7 @@ jupyterhub:
         from tornado.escape import json_decode
         from jupyterhub.handlers import BaseHandler
         class ProjectDeletionHandler(BaseHandler):
-        
+
             def strip_repo_url(self, repo_url):
                 return repo_url.lstrip("http://").lstrip("https://").rstrip('.git').rstrip('/')
 
