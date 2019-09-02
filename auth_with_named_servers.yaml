@@ -4,3 +4,4 @@ config:
 jupyterhub:
   hub:
     allowNamedServers: true
+    namedServerLimitPerUser: 2
