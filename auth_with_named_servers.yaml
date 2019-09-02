@@ -3,5 +3,8 @@ config:
     use_named_servers: true
 jupyterhub:
   hub:
+    extraConfig:
+      hub_extra: |
+        c.JupyterHub.named_server_limit_per_user = 2
     allowNamedServers: true
-    namedServerLimitPerUser: 2
+    #namedServerLimitPerUser: 2
