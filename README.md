@@ -12,12 +12,6 @@ helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-f746e50  \
     -f config.yaml -f secret.yaml \
     --wait --force --debug --timeout=360
 
-# bhub with named servers
-helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-f746e50  \
-    --install --namespace=bhub-example-ns \
-    -f config.yaml -f config_with_named_servers.yaml -f secret.yaml \
-    --wait --force --debug --timeout=360
-
 # auth
 helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-f746e50  \
     --install --namespace=bhub-example-ns \

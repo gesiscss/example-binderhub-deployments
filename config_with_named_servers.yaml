@@ -1,7 +1,0 @@
-jupyterhub:
-  hub:
-    extraConfig:
-      hub_named: |
-        c.JupyterHub.named_server_limit_per_user = 2
-    allowNamedServers: true
-    #namedServerLimitPerUser: 2
