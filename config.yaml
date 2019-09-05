@@ -24,7 +24,8 @@ config:
       - ^hmharshit/mltraining.*
   BinderHub:
     debug: true
-    hub_url: https://notebooks-test.gesis.org/jupyter/
+#    hub_url: https://notebooks-test.gesis.org/jupyter/
+    hub_url: https://notebooks-test.gesis.org
 
     use_registry: true
     image_prefix: gesiscss/orc-example-binder-
@@ -59,7 +60,7 @@ jupyterhub:
     enabled: true
 
   hub:
-    baseUrl: /jupyter/
+#    baseUrl: /jupyter/
     pdb:
       minAvailable: 0
     service:
@@ -70,7 +71,8 @@ jupyterhub:
       hub_extra: |
         c.JupyterHub.redirect_to_server = False
       hub_config: |
-        c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/jupyter/'
+        #c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/jupyter/'
+        c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org
         if "cookie_options" in c.JupyterHub.tornado_settings:
           c.JupyterHub.tornado_settings["cookie_options"].update({"secure": True})
         else:

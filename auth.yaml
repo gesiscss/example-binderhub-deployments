@@ -27,7 +27,8 @@ jupyterhub:
     type: github
     github:
       # to make notebook servers aware of hub
-      callbackUrl: "https://notebooks-test.gesis.org/jupyter/hub/oauth_callback"
+#      callbackUrl: "https://notebooks-test.gesis.org/jupyter/hub/oauth_callback"
+      callbackUrl: "https://notebooks-test.gesis.org/hub/oauth_callback"
     scopes:
       - "read:user"
     admin:
