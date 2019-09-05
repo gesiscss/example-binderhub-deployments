@@ -1,11 +1,15 @@
+# NOTE this image also includes jupyterhub==1.0.0 in requirements.txt
 image:
   name: gesiscss/k8s-bhub-example
-  tag: 55c296b
+  tag: queryparams-1
+
+nodeSelector:
+  base: worker
 
 config:
   BinderHub:
     base_url: /services/binder/
-    hub_url: https://notebooks-test.gesis.org/
+#    hub_url: https://notebooks-test.gesis.org
     query_parameter_names: ['run-nbgitpuller']
 
     appendix: |
@@ -18,34 +22,49 @@ config:
 
 jupyterhub:
   hub:
+    # clone custom JupyterHub templates into a volume
+    initContainers:
+      - name: git-clone-templates
+        image: alpine/git
+        args:
+          - clone
+          - --single-branch
+          - --branch=master
+          - --depth=1
+          - --
+          - https://github.com/gesiscss/example-binderhub-deployments.git
+          - /etc/jupyterhub/custom
+        securityContext:
+          runAsUser: 0
+        volumeMounts:
+          - name: custom-templates
+            mountPath: /etc/jupyterhub/custom
+    extraVolumes:
+      - name: custom-templates
+        emptyDir: {}
+    extraVolumeMounts:
+      - name: custom-templates
+        mountPath: /etc/jupyterhub/custom
+
     # increase to 10 in order to decrease hub restarts
     # because informative errors from spawner also increases failure_count
     consecutiveFailureLimit: 10
-    baseUrl: /
-    image:
-      name: gesiscss/k8s-hub-example
-      tag: "7255e5d"
+#    baseUrl: /
 
     services:
       binder:
-        url: http://194.95.75.10:30193
+        url: http://194.95.75.9:30193  # base worker
         oauth_redirect_uri: "https://notebooks-test.gesis.org/services/binder/oauth_callback"
 
     extraConfig:
-      hub_extra: |
-        c.JupyterHub.redirect_to_server = False
-        c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/'
-        if "cookie_options" in c.JupyterHub.tornado_settings:
-          c.JupyterHub.tornado_settings["cookie_options"].update({"secure": True})
-        else:
-          c.JupyterHub.tornado_settings["cookie_options"] = dict(secure=True)
+      hub_slow_spawn_timeout: |
         c.JupyterHub.tornado_settings['slow_spawn_timeout']= 10
       # set pod restart_policy back to default value OnFailure, because user pod sometimes fails when
       # PostStart hook doesn't finish first cloning repo before docker entrypoint (start notebook server)
       neverRestart: |
         c.KubeSpawner.extra_pod_config.update({'restart_policy': 'OnFailure'})
       templates: |
-        c.JupyterHub.template_paths = ['/srv/jhub_custom_templates']
+        c.JupyterHub.template_paths = ['/etc/jupyterhub/custom/jupyterhub/templates']
       binder: |
         from tornado import web
         from kubespawner import KubeSpawner
@@ -219,9 +238,9 @@ jupyterhub:
                 self.write(json.dumps(response_to_send))
 
         c.JupyterHub.extra_handlers = [(r'/delete_project', ProjectDeletionHandler),]
-  auth:
-    github:
-      callbackUrl: "https://notebooks-test.gesis.org/hub/oauth_callback"
+#  auth:
+#    github:
+#      callbackUrl: "https://notebooks-test.gesis.org/hub/oauth_callback"
 
   singleuser:
     storage:
@@ -230,4 +249,4 @@ jupyterhub:
     image:
       # https://github.com/gesiscss/data_science_image
       name: gesiscss/singleuser-orc
-      tag: "r2d-91fe4c6"
+      tag: "r2d-09c7bce"
