@@ -1,6 +1,7 @@
+# jhub oauth doesn't work, when minAvailable 1 and replicas 2
 pdb:
-  minAvailable: 1
-replicas: 2
+  minAvailable: 0
+replicas: 1
 
 resources:
   requests:
