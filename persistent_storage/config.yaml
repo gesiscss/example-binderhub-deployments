@@ -1,7 +1,7 @@
 # NOTE this image also includes jupyterhub==1.0.0 in requirements.txt
 image:
   name: gesiscss/k8s-bhub-example
-  tag: queryparams-1
+  tag: orc-10
 
 nodeSelector:
   base: worker
