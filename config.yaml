@@ -72,7 +72,7 @@ jupyterhub:
         c.JupyterHub.redirect_to_server = False
       hub_config: |
         #c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/jupyter/'
-        c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org
+        c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org'
         if "cookie_options" in c.JupyterHub.tornado_settings:
           c.JupyterHub.tornado_settings["cookie_options"].update({"secure": True})
         else:
