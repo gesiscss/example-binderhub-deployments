@@ -64,7 +64,7 @@ jupyterhub:
       neverRestart: |
         c.KubeSpawner.extra_pod_config.update({'restart_policy': 'OnFailure'})
       templates: |
-        c.JupyterHub.template_paths = ['/etc/jupyterhub/custom/jupyterhub/templates']
+        c.JupyterHub.template_paths = ['/etc/jupyterhub/custom/persistent_storage/jupyterhub/templates']
       binder: |
         from tornado import web
         from kubespawner import KubeSpawner
