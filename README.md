@@ -7,25 +7,25 @@ Deployment:
 kubectl create namespace bhub-example-ns
 
 # plain bhub
-helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-f746e50  \
+helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-b3c9128  \
     --install --namespace=bhub-example-ns \
     -f config.yaml -f secret.yaml \
     --wait --force --debug --timeout=360
 
 # auth
-helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-f746e50  \
+helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-b3c9128  \
     --install --namespace=bhub-example-ns \
     -f config.yaml -f auth.yaml -f secret.yaml \
     --wait --force --debug --timeout=360
 
 # auth with named servers
-helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-f746e50  \
+helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-b3c9128  \
     --install --namespace=bhub-example-ns \
     -f config.yaml -f auth.yaml -f auth_with_named_servers.yaml -f secret.yaml \
     --wait --force --debug --timeout=360
 
 # with custom templates
-helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-f746e50  \
+helm upgrade bhub-example jupyterhub/binderhub --version=0.2.0-b3c9128  \
     --install --namespace=bhub-example-ns \
     -f config.yaml -f custom_templates.yaml -f secret.yaml \
     --wait --force --debug --timeout=360

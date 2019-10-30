@@ -4,14 +4,13 @@ config:
 
 jupyterhub:
   hub:
+    redirectToServer: false
     services:
       binder:
         oauth_redirect_uri: "https://notebooks-test.gesis.org/oauth_callback"
         oauth_client_id: "binder-oauth-client-test"
 
     extraConfig:
-      hub_extra: |
-        c.JupyterHub.redirect_to_server = False
       binder: |
         from kubespawner import KubeSpawner
 
@@ -27,7 +26,6 @@ jupyterhub:
     type: github
     github:
       # to make notebook servers aware of hub
-#      callbackUrl: "https://notebooks-test.gesis.org/jupyter/hub/oauth_callback"
       callbackUrl: "https://notebooks-test.gesis.org/hub/oauth_callback"
     scopes:
       - "read:user"

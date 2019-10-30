@@ -1,4 +1,5 @@
-# jhub oauth doesn't work, when minAvailable 1 and replicas 2
+# NOTE: JupyterHub as auth provider doesn't work, when BinderHub has minAvailable 1 and replicas 2
+# TODO create an issue about it
 pdb:
   minAvailable: 0
 replicas: 1
@@ -8,8 +9,8 @@ resources:
     cpu: "0.25"
     memory: 512Mi
   limits:
-    cpu: "0.5"
-    memory: 512Mi
+    cpu: "1"
+    memory: 1Gi
 
 config:
   GitHubRepoProvider:
@@ -24,12 +25,10 @@ config:
       - ^hmharshit/mltraining.*
   BinderHub:
     debug: true
-#    hub_url: https://notebooks-test.gesis.org/jupyter/
     hub_url: https://notebooks-test.gesis.org
-
     use_registry: true
     image_prefix: gesiscss/orc-example-binder-
-    build_image: jupyter/repo2docker:9c559d2a
+    build_image: jupyter/repo2docker:0.10.0-100.g0dba611
     build_node_selector:
       user: worker
     per_repo_quota: 100
@@ -38,7 +37,6 @@ config:
 service:
   annotations:
     prometheus.io/scrape: 'false'
-  #type: ClusterIP
   type: NodePort
   nodePort: 30193
 
@@ -60,16 +58,18 @@ jupyterhub:
     enabled: true
 
   hub:
-#    baseUrl: /jupyter/
     pdb:
       minAvailable: 0
+    nodeSelector:
+      base: worker
     service:
       annotations:
         prometheus.io/scrape: 'false'
 
+    redirectToServer: false
+    authenticatePrometheus: false
+    shutdownOnLogout: true
     extraConfig:
-      hub_extra: |
-        c.JupyterHub.redirect_to_server = False
       hub_config: |
         #c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/jupyter/'
         c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org'
@@ -79,25 +79,21 @@ jupyterhub:
           c.JupyterHub.tornado_settings["cookie_options"] = dict(secure=True)
       neverRestart: |
         c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
-      noAuthMetrics: |
-        c.JupyterHub.authenticate_prometheus = False
 
     resources:
       requests:
         cpu: "0.25"
         memory: 512Mi
       limits:
-        cpu: "0.5"
-        memory: 512Mi
+        cpu: "1"
+        memory: 1Gi
 
   proxy:
     pdb:
       minAvailable: 0
-    # https://zero-to-jupyterhub.readthedocs.io/en/stable/security.html#https
     https:
       enablde: false
     service:
-      #type: ClusterIP
       type: NodePort
       nodePorts:
         http: 30190
@@ -108,7 +104,7 @@ jupyterhub:
           memory: 256Mi
         limits:
           cpu: "0.5"
-          memory: 256Mi
+          memory: 512Mi
 
   singleuser:
     nodeSelector:
@@ -118,7 +114,7 @@ jupyterhub:
       limit: 0.5
     memory:
       guarantee: 512M
-      limit: 512M
+      limit: 1G
 
   scheduling:
     userScheduler:
