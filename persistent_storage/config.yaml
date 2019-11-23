@@ -1,35 +1,139 @@
-# NOTE this image also includes jupyterhub==1.0.0 in requirements.txt
-image:
-  name: gesiscss/k8s-bhub-example
-  tag: orc-10
-
 nodeSelector:
   base: worker
 
 config:
   BinderHub:
     base_url: /services/binder/
-#    hub_url: https://notebooks-test.gesis.org
-    query_parameter_names: ['run-nbgitpuller']
 
-    appendix: |
-      USER root
-      ENV BINDER_URL={binder_url}
-      ENV REPO_URL={repo_url}
-      USER $NB_USER
-      RUN pip install nbgitpuller
-      RUN jupyter serverextension enable --py nbgitpuller --sys-prefix
+extraEnv:
+  - name: PROJECTS_LIMIT_PER_USER
+    value: "3"
+
+extraConfig:
+  0-launcher:  |
+    import base64
+    import json
+    import uuid
+
+    from tornado.log import app_log
+    from tornado import web, gen
+    from tornado.httpclient import HTTPError
+
+    async def check_user_projects(self, username, repo_url):
+        # we are making request to API with admin token
+        resp = await self.api_request(
+            'projects/%s' % username,
+            method='GET',
+        )
+        body = json.loads(resp.body.decode('utf-8'))
+        projects = body['projects']
+        projects_limit = int(os.getenv('PROJECTS_LIMIT_PER_USER', 0))
+        if projects_limit > 0 and projects:
+          projects_repo_list = [p[0] for p in projects]
+          if repo_url not in projects_repo_list and len(projects) >= projects_limit:
+              raise web.HTTPError(409, "No more than {} projects is allowed. "
+                                       "One must be deleted before a new project can be created.".format(projects_limit))
+
+    async def launch(self, image, username, server_name='', repo_url=''):
+        """Launch a server for a given image
+
+        - creates a temporary user on the Hub if authentication is not enabled
+        - spawns a server for temporary/authenticated user
+        - generates a token
+        - returns a dict containing:
+          - `url`: the URL of the server
+          - `image`: image spec
+          - `repo_url`: the url of the repo
+          - `token`: the token for the server
+        """
+        # TODO: validate the image argument?
+
+        if self.create_user:
+            # create a new user
+            app_log.info("Creating user %s for image %s", username, image)
+            try:
+                await self.api_request('users/%s' % username, body=b'', method='POST')
+            except HTTPError as e:
+                if e.response:
+                    body = e.response.body
+                else:
+                    body = ''
+                app_log.error("Error creating user %s: %s\n%s",
+                    username, e, body,
+                )
+                raise web.HTTPError(500, "Failed to create temporary user for %s" % image)
+        elif server_name == '':
+            # authentication is enabled but not named servers
+            # check if user has a running server ('')
+            user_data = await self.get_user_data(username)
+            if server_name in user_data['servers']:
+                raise web.HTTPError(409, "User %s already has a running server." % username)
+            await self.check_user_projects(username, repo_url)
+
+        # data to be passed into spawner's user_options during launch
+        # and also to be returned into 'ready' state
+        data = {'image': image,
+                'repo_url': repo_url,
+                'token': base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('ascii').rstrip('=\n')}
+
+        # server name to be used in logs
+        _server_name = " {}".format(server_name) if server_name else ''
+
+        # start server
+        app_log.info("Starting server%s for user %s with image %s", _server_name, username, image)
+        try:
+            resp = await self.api_request(
+                'users/{}/servers/{}'.format(username, server_name),
+                method='POST',
+                body=json.dumps(data).encode('utf8'),
+            )
+            if resp.code == 202:
+                # Server hasn't actually started yet
+                # We wait for it!
+                # NOTE: This ends up being about ten minutes
+                for i in range(64):
+                    user_data = await self.get_user_data(username)
+                    if user_data['servers'][server_name]['ready']:
+                        break
+                    if not user_data['servers'][server_name]['pending']:
+                        raise web.HTTPError(500, "Image %s for user %s failed to launch" % (image, username))
+                    # FIXME: make this configurable
+                    # FIXME: Measure how long it takes for servers to start
+                    # and tune this appropriately
+                    await gen.sleep(min(1.4 ** i, 10))
+                else:
+                    raise web.HTTPError(500, "Image %s for user %s took too long to launch" % (image, username))
+
+        except HTTPError as e:
+            if e.response:
+                body = e.response.body
+            else:
+                body = ''
+
+            app_log.error("Error starting server{} for user {}: {}\n{}".
+                          format(_server_name, username, e, body))
+            raise web.HTTPError(500, "Failed to launch image %s" % image)
+
+        data['url'] = self.hub_url + 'user/%s/%s' % (username, server_name)
+        return data
+
+    from binderhub.launcher import Launcher
+    Launcher.check_user_projects = check_user_projects
+    Launcher.launch = launch
 
 jupyterhub:
   hub:
-    # clone custom JupyterHub templates into a volume
+    templateVars:
+      projects_limit: "3"
+      announcement_home: "User has to go to <a href='https://notebooks-test.gesis.org/services/binder/' target='_blank'>https://notebooks-test.gesis.org/services/binder/</a> and confirm that Binder service can identify the user with user's JupyterHub account (A service is attempting to authorize with your JupyterHub account). Otherwise nothing works in this page."
+    # clone custom JupyterHub templates (jhub home with binder form) into a volume
     initContainers:
       - name: git-clone-templates
         image: alpine/git
         args:
           - clone
           - --single-branch
-          - --branch=master
+          - --branch=dev
           - --depth=1
           - --
           - https://github.com/gesiscss/example-binderhub-deployments.git
@@ -46,36 +150,36 @@ jupyterhub:
       - name: custom-templates
         mountPath: /etc/jupyterhub/custom
 
-    # increase to 10 in order to decrease hub restarts
-    # because informative errors from spawner also increases failure_count
-    consecutiveFailureLimit: 10
-#    baseUrl: /
-
     services:
       binder:
         url: http://194.95.75.9:30193  # base worker
         oauth_redirect_uri: "https://notebooks-test.gesis.org/services/binder/oauth_callback"
-
+    templatePaths:
+      - "/etc/jupyterhub/custom/persistent_storage/jupyterhub/templates"
     extraConfig:
-      hub_slow_spawn_timeout: |
-        c.JupyterHub.tornado_settings['slow_spawn_timeout']= 10
-      # set pod restart_policy back to default value OnFailure, because user pod sometimes fails when
-      # PostStart hook doesn't finish first cloning repo before docker entrypoint (start notebook server)
+      # set pod restart_policy back to default value OnFailure
       neverRestart: |
         c.KubeSpawner.extra_pod_config.update({'restart_policy': 'OnFailure'})
-      templates: |
-        c.JupyterHub.template_paths = ['/etc/jupyterhub/custom/persistent_storage/jupyterhub/templates']
       binder: |
         from tornado import web
         from kubespawner import KubeSpawner
         from os.path import join
 
         class BinderSpawner(KubeSpawner):
-          banned_images = []
-          # allowed_images = []
+
+          default_project = ['https://github.com/gesiscss/data_science_image', 'gesiscss/singleuser-orc:r2d-dd93b3e', 'master']
 
           def strip_repo_url(self, repo_url):
-              return repo_url.lstrip("http://").lstrip("https://").rstrip('.git').rstrip('/')
+              p = "http://"
+              if repo_url.startswith(p):
+                  repo_url = repo_url[len(p):]
+              p = "https://"
+              if repo_url.startswith(p):
+                  repo_url = repo_url[len(p):]
+              p = ".git"
+              if repo_url.endswith(p):
+                  repo_url = repo_url[:-len(p)]
+              return repo_url.rstrip('/')
 
           def url_to_dir(self, url):
             url = self.strip_repo_url(url)
@@ -83,170 +187,180 @@ jupyterhub:
 
           def start(self):
             # clean attributes, so we dont save wrong values in state when error happens
-            if hasattr(self, 'repo_url'):
-              delattr(self, 'repo_url')
-            if hasattr(self, 'ref'):
-              delattr(self, 'ref')
+            for attr in ('repo_url', 'ref', 'image'):
+                self.__dict__.pop(attr, None)
 
-            self.reset_delete_list = False
-            state = self.get_state()
             # get last saved projects
-            projects = state['projects']
-            # get list of projects to be deleted from disk just after spawn
-            delete_list = state['delete_list']
+            projects = self.orm_spawner.state['projects']
+            # get list of projects to delete from disk before spawn in initContainer
+            deleted_projects = self.orm_spawner.state['deleted_projects']
 
             # get image spec from user_options
             if 'image' in self.user_options and \
               'repo_url' in self.user_options and \
               'token' in self.user_options:
-              # check if user has reached to projects limit
-              # NOTE this must be checked before self.repo_url and self.ref are set!
-              repo_url = self.user_options['repo_url'].rstrip('.git').rstrip('/')
-              projects_limit = 5
-              projects_repo_list = [self.strip_repo_url(p[0]) for p in projects]
-              if self.strip_repo_url(repo_url) not in projects_repo_list and len(projects) >= projects_limit:
-                self.log.error("No more than %s projects is allowed. One must be deleted before a new project can be created.", projects_limit)
-                raise web.HTTPError(409, "No more than %s projects is allowed. One must be deleted before a new project can be created.", projects_limit)
-
               # binder service sets the image spec via user options
-              self.image = self.user_options['image']
               # NOTE: user can pass any options through API (without using binder) too
-              if self.image in self.banned_images or self.image.split(':')[0] in self.banned_images:
-                self.log.error("Image %s is in banned.", self.image)
-                raise web.HTTPError(409, "Image %s is in banned.", self.image)
-              self.repo_url = repo_url
+              self.image = self.user_options['image']
               self.ref = self.image.split(':')[-1]
+              self.repo_url = self.user_options['repo_url']  # repo_url is generated in bhub by repo providers
             else:
-              # user starts server without binder form (default)
-              # for example via spawn url or by refresing user page when server was stopped
-              # launch last repo in projects
-              self.repo_url, self.ref, _ = projects[-1]
+              if projects:
+                # user starts server without binder form (default)
+                # for example via spawn url or by refresing user page when server was stopped
+                # launch last repo in projects
+                self.repo_url, self.image, self.ref, _ = projects[-1]
+              else:
+                # if user has no projects (e.g. user makes first login, deletes default project and uses spawn url), start default repo
+                self.repo_url, self.image, self.ref = self.default_project
 
-            # prepare postStart command
-            delete_cmd = f"rm -rf {' '.join(['~/'+self.url_to_dir(d) for d in delete_list])}" if delete_list else ""
-            shared_folder = '~/shared_storage'  # shared folder between projects of user
-            repo_dir = '~/'+self.url_to_dir(self.repo_url)
-            if repo_dir == shared_folder:
-              repo_dir += '_'
-            symlink_dir = join(repo_dir, shared_folder[2:])
-            # symlink_cmd: create a symlink to {shared_folder} if directory or symlink with same name does not exist
-            symlink_cmd = f"if [ -d {symlink_dir} ]; " \
-                          f"then echo 'directory {symlink_dir} exists'; " \
-                          f"elif [ -L {symlink_dir} ]; " \
-                          f"then echo '{symlink_dir} is a symlink'; " \
-                          f"else mkdir -p {shared_folder} && ln -s {shared_folder} {symlink_dir}; fi"
-            gitpuller_cmd = f"gitpuller {self.repo_url} master {repo_dir}"
-            # NOTE: PostStart -> This hook executes immediately after a container is created.
-            # However, there is no guarantee that the hook will execute before the container ENTRYPOINT.
-            # thats why sometimes we get error from SingleUserNotebookApp when launching a repo for the first time:
-            # "No such notebook dir: '/home/jovyan/{repo_dir}'",
-            if self.user_options.get('run-nbgitpuller', 'true').lower() in ['true', '1']:
-              commands = [delete_cmd, gitpuller_cmd, symlink_cmd] if delete_cmd else [gitpuller_cmd, symlink_cmd]
-              command = " && ".join(commands)
-            else:
-              # NOTE: dont mkdir -p repo_dir, because nbgitpuller fails with empty dir (non-git dir)
-              command = delete_cmd
-            self.lifecycle_hooks = {'postStart': {'exec': {'command': ["/bin/sh", "-c", command]}}} if command else {}
-            self.notebook_dir = repo_dir
+            # prepare initContainer
+            # NOTE: first initContainer runs and when it is done, then notebook container runs
+            # https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+            # https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-initialization/#create-a-pod-that-has-an-init-container
+            # https://github.com/jupyterhub/kubespawner/blob/v0.8.1/kubespawner/spawner.py#L638-L664
+            mount_path = '/projects/'
+            # first it deletes projects on disk (if there are any to delete)
+            delete_cmd = f"rm -rf {' '.join([join(mount_path, self.url_to_dir(d)) for d in deleted_projects])}" if deleted_projects else ""
+            # then copies image's home folder (repo content after r2d process) into project's dir on disk (if project_path doesnt exists on persistent disk)
+            project_dir = self.url_to_dir(self.repo_url)
+            project_path = join(mount_path, project_dir)
+            copy_cmd = f"if [ -d {project_path} ]; " \
+                       f"then echo 'directory {project_path} exists'; " \
+                       f"elif [ -L {project_path} ]; " \
+                       f"then echo '{project_path} is a symlink'; " \
+                       f"else mkdir {project_path} && cp -a ~/. {project_path}; fi"
+            init_container_cmds = [delete_cmd, copy_cmd] if delete_cmd else [copy_cmd]
+            projects_volume_mount = {'name': self.volumes[0]['name'], 'mountPath': mount_path}
+            self.init_containers = [{
+                "name": "project-manager",
+                "image": self.image,
+                "command": ["/bin/sh", "-c", " && ".join(init_container_cmds)],
+                # volumes is already defined for notebook container (self.volumes)
+                "volume_mounts": [projects_volume_mount],
+            }]
 
-            self.reset_delete_list = True
+            # https://kubernetes.io/docs/concepts/storage/volumes/#using-subpath
+            self.volume_mounts.append(projects_volume_mount)
+            # mountPath is /home/jovyan, this is set in z2jh helm chart values.yaml
+            #mount_path = "~/"
+            #mount_path = "$(HOME)"
+            #self.volume_mounts[0]['mountPath'] = mount_path
+            # mount only project_path to home
+            self.volume_mounts[0]['subPath'] = project_dir
+
+            self.reset_deleted_projects = True
             return super().start()
 
           def get_state_field(self, name):
-            # just get current value of a field in state
-            # dont update thing in state
+            # just get current value of a field in state, don't update thing in state
             self.update_projects = False
-            reset_delete_list = getattr(self, 'reset_delete_list', False)
-            self.reset_delete_list = False
+            reset_deleted_projects = getattr(self, 'reset_deleted_projects', False)
+            self.reset_deleted_projects = False
             state = self.get_state()
             self.update_projects = True
-            self.reset_delete_list = reset_delete_list
+            self.reset_deleted_projects = reset_deleted_projects
             return state[name]
 
           def get_state(self):
-            _state = self.orm_spawner.state
+            """Use this method to update projects, because this method is called both in
+            start and stop of the server (see jupyterhub.User's `start` and `stop` methods),
+            db.commit is called after these methods.
+            """
             # default_projects is only to use when first login
-            default_projects = [['https://github.com/gesiscss/data_science_image', 'master', 'never']]
+            default_projects = [self.default_project + ['never']]
+            _state = self.orm_spawner.state
             projects = _state.get('projects', []) if _state else default_projects
-            delete_list = _state.get('delete_list', []) if _state else []
+            deleted_projects = _state.get('deleted_projects', []) if _state else []
 
             state = super().get_state()
             state['projects'] = projects
-            state['delete_list'] = delete_list
+            state['deleted_projects'] = deleted_projects
 
-            if getattr(self, 'update_projects', True) is True and hasattr(self, 'repo_url') and hasattr(self, 'ref'):
+            if getattr(self, 'update_projects', True) is True and hasattr(self, 'repo_url') and hasattr(self, 'image') and hasattr(self, 'ref'):
               # project is started or already running or is stopped,
               # so move project to the end and update the last launched time (last seen)
               from datetime import datetime
-              e = [self.repo_url, self.ref, datetime.utcnow().isoformat() + 'Z']
-              _projects = []
+              e = [self.repo_url, self.image, self.ref, datetime.utcnow().isoformat() + 'Z']
+              new_projects = []
               for p in projects:
                 if p[0] != e[0]:
-                  _projects.append(p)
-              _projects.append(e)
-              state['projects'] = _projects
+                  new_projects.append(p)
+              new_projects.append(e)
+              state['projects'] = new_projects
 
-            if getattr(self, 'reset_delete_list', False) is True:
-              state['delete_list'] = []
+            if getattr(self, 'reset_deleted_projects', False) is True:
+              state['deleted_projects'] = []
 
             return state
         c.JupyterHub.spawner_class = BinderSpawner
-      extra_handlers: |
+      projects_handler: |
         import json
         from tornado.escape import json_decode
-        from jupyterhub.handlers import BaseHandler
-        class ProjectDeletionHandler(BaseHandler):
+        from tornado import web
 
-            def strip_repo_url(self, repo_url):
-                return repo_url.lstrip("http://").lstrip("https://").rstrip('.git').rstrip('/')
+        from jupyterhub.utils import admin_only
+        from jupyterhub.apihandlers.base import APIHandler
+        from jupyterhub.apihandlers.users import admin_or_self
 
-            @web.authenticated
-            def post(self):
-                # https://github.com/zhanglongqi/TornadoAJAXSample
-                response_to_send = {}
-                user = self.current_user
+        class ProjectAPIHandler(APIHandler):
+            @admin_only
+            async def get(self, name):
+                # get user's projects
+                user = self.find_user(name)
+                if not user:
+                  raise web.HTTPError(404)
+                projects = {'projects': user.spawner.get_state_field('projects')}
+                self.write(json.dumps(projects))
+
+            @admin_or_self
+            async def delete(self, name):
+                # delete a project of user
+                user = self.find_user(name)
+                response = {}
                 if user.running:
-                    response_to_send["error"] = "Project deletion is not allowed while user server is running."
+                    response["error"] = "Project deletion is not allowed while user server is running."
                 else:
-                    json_obj = json_decode(self.request.body)
-                    if "repo_url" in json_obj and "name" in json_obj and "id" in json_obj:
-                        repo_url = self.strip_repo_url(json_obj["repo_url"])
-                        delete_on_disk = json_obj.get("delete_on_disk", False)
-                        state = user.spawner.get_state()
-                        projects = []
-                        delete_list = []
+                    body = json_decode(self.request.body)
+                    if "repo_url" in body and "name" in body and "id" in body:
+                        repo_url = body["repo_url"]
+                        delete_on_disk = body.get("delete_on_disk", False)
+                        projects = user.spawner.get_state_field('projects')
+                        new_projects = []
+                        deleted_projects = user.spawner.get_state_field('deleted_projects')
                         found = False
-                        for project in state.get("projects", []):
-                            if repo_url != self.strip_repo_url(project[0]):
-                                projects.append(project)
+                        for project in projects:
+                            if repo_url != project[0]:
+                                new_projects.append(project)
                             else:
-                              found = True
-                              if delete_on_disk is True and repo_url not in delete_list:
-                                  delete_list.append(repo_url)
+                                found = True
+                                if delete_on_disk is True and repo_url not in deleted_projects:
+                                    deleted_projects.append(repo_url)
                         if found is True:
-                            state["projects"] = projects
-                            state["delete_list"].extend(delete_list)
+                            # NOTE: this way we ensure that this JSONDict field (state) is updated with db.commit()
+                            state = user.spawner.get_state()
+                            state["projects"] = new_projects
+                            state["deleted_projects"] = deleted_projects
                             user.spawner.orm_spawner.state = state
                             self.db.commit()
 
-                            response_to_send["success"] = f"Project {json_obj['name']} is deleted."
-                            response_to_send["id"] = json_obj["id"]
+                            response["success"] = f"Project {body['name']} is deleted."
+                            response["id"] = body["id"]
                         else:
-                            response_to_send["error"] = f"Project {json_obj['name']} ({json_obj['repo_url']}) doesn't exist."
+                            response["error"] = f"Project {body['name']} ({body['repo_url']}) doesn't exist."
                     else:
-                        response_to_send["error"] = "Bad request."
-                self.write(json.dumps(response_to_send))
+                        response["error"] = "Bad request."
+                self.write(json.dumps(response))
 
-        c.JupyterHub.extra_handlers = [(r'/delete_project', ProjectDeletionHandler),]
-#  auth:
-#    github:
-#      callbackUrl: "https://notebooks-test.gesis.org/hub/oauth_callback"
+        c.JupyterHub.extra_handlers = [(r'/api/projects/([^/]+)', ProjectAPIHandler), ]
 
   singleuser:
+    events: true
     storage:
       type: dynamic
       capacity: 5Gi
     image:
       # https://github.com/gesiscss/data_science_image
+      # NOTE: when you update this image, don't forget to update `default_project` attribute of `BinderSpawner`
       name: gesiscss/singleuser-orc
-      tag: "r2d-09c7bce"
+      tag: "r2d-dd93b3e"

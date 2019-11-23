@@ -1,5 +1,3 @@
-# NOTE: JupyterHub as auth provider doesn't work, when BinderHub has minAvailable 1 and replicas 2
-# TODO create an issue about it
 pdb:
   minAvailable: 0
 replicas: 1
@@ -28,7 +26,7 @@ config:
     hub_url: https://notebooks-test.gesis.org
     use_registry: true
     image_prefix: gesiscss/orc-example-binder-
-    build_image: jupyter/repo2docker:0.10.0-100.g0dba611
+    build_image: jupyter/repo2docker:0.10.0-112.g242107b
     build_node_selector:
       user: worker
     per_repo_quota: 100
@@ -70,15 +68,15 @@ jupyterhub:
     authenticatePrometheus: false
     shutdownOnLogout: true
     extraConfig:
-      hub_config: |
-        #c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org/jupyter/'
+      neverRestart: |
+        c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
+      bind_url: |
         c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org'
+      hub_config: |
         if "cookie_options" in c.JupyterHub.tornado_settings:
           c.JupyterHub.tornado_settings["cookie_options"].update({"secure": True})
         else:
           c.JupyterHub.tornado_settings["cookie_options"] = dict(secure=True)
-      neverRestart: |
-        c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
 
     resources:
       requests:
@@ -100,11 +98,11 @@ jupyterhub:
     chp:
       resources:
         requests:
-          cpu: "0.1"
-          memory: 256Mi
-        limits:
           cpu: "0.5"
           memory: 512Mi
+        limits:
+          cpu: "1"
+          memory: 1Gi
 
   singleuser:
     nodeSelector:
