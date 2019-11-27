@@ -133,7 +133,7 @@ jupyterhub:
         args:
           - clone
           - --single-branch
-          - --branch=dev
+          - --branch=master
           - --depth=1
           - --
           - https://github.com/gesiscss/example-binderhub-deployments.git
