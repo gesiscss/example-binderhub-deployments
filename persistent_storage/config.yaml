@@ -41,9 +41,15 @@ binderhub:
         - name: hub-templates
           configMap:
             name: hub-templates
+        - name: hub-extra-config
+          configMap:
+            name: hub-extra-config
       extraVolumeMounts:
         - name: hub-templates
           mountPath: /etc/jupyterhub/templates
+        - mountPath: /etc/jupyterhub/extra_config.py  # mount where jupyterhub_config.py is, we import it there.
+          subPath: extra_config.py
+          name: hub-extra-config
       services:
         binder:
           url: http://194.95.75.9:30193  # base worker
