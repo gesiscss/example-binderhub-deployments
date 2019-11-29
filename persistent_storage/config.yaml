@@ -10,18 +10,14 @@ extraEnv:
     value: "3"
 
 extraConfig:
-  0-launcher:  |
-    import base64
+  00-launcher:  |
+    from tornado import web
     import json
-    import uuid
+    import os
 
-    from tornado.log import app_log
-    from tornado import web, gen
-    from tornado.httpclient import HTTPError
-
-    async def check_user_projects(self, username, repo_url):
+    async def check_user_projects(launcher, image, username, server_name, repo_url):
         # we are making request to API with admin token
-        resp = await self.api_request(
+        resp = await launcher.api_request(
             'projects/%s' % username,
             method='GET',
         )
@@ -33,93 +29,7 @@ extraConfig:
           if repo_url not in projects_repo_list and len(projects) >= projects_limit:
               raise web.HTTPError(409, "No more than {} projects is allowed. "
                                        "One must be deleted before a new project can be created.".format(projects_limit))
-
-    async def launch(self, image, username, server_name='', repo_url=''):
-        """Launch a server for a given image
-
-        - creates a temporary user on the Hub if authentication is not enabled
-        - spawns a server for temporary/authenticated user
-        - generates a token
-        - returns a dict containing:
-          - `url`: the URL of the server
-          - `image`: image spec
-          - `repo_url`: the url of the repo
-          - `token`: the token for the server
-        """
-        # TODO: validate the image argument?
-
-        if self.create_user:
-            # create a new user
-            app_log.info("Creating user %s for image %s", username, image)
-            try:
-                await self.api_request('users/%s' % username, body=b'', method='POST')
-            except HTTPError as e:
-                if e.response:
-                    body = e.response.body
-                else:
-                    body = ''
-                app_log.error("Error creating user %s: %s\n%s",
-                    username, e, body,
-                )
-                raise web.HTTPError(500, "Failed to create temporary user for %s" % image)
-        elif server_name == '':
-            # authentication is enabled but not named servers
-            # check if user has a running server ('')
-            user_data = await self.get_user_data(username)
-            if server_name in user_data['servers']:
-                raise web.HTTPError(409, "User %s already has a running server." % username)
-            await self.check_user_projects(username, repo_url)
-
-        # data to be passed into spawner's user_options during launch
-        # and also to be returned into 'ready' state
-        data = {'image': image,
-                'repo_url': repo_url,
-                'token': base64.urlsafe_b64encode(uuid.uuid4().bytes).decode('ascii').rstrip('=\n')}
-
-        # server name to be used in logs
-        _server_name = " {}".format(server_name) if server_name else ''
-
-        # start server
-        app_log.info("Starting server%s for user %s with image %s", _server_name, username, image)
-        try:
-            resp = await self.api_request(
-                'users/{}/servers/{}'.format(username, server_name),
-                method='POST',
-                body=json.dumps(data).encode('utf8'),
-            )
-            if resp.code == 202:
-                # Server hasn't actually started yet
-                # We wait for it!
-                # NOTE: This ends up being about ten minutes
-                for i in range(64):
-                    user_data = await self.get_user_data(username)
-                    if user_data['servers'][server_name]['ready']:
-                        break
-                    if not user_data['servers'][server_name]['pending']:
-                        raise web.HTTPError(500, "Image %s for user %s failed to launch" % (image, username))
-                    # FIXME: make this configurable
-                    # FIXME: Measure how long it takes for servers to start
-                    # and tune this appropriately
-                    await gen.sleep(min(1.4 ** i, 10))
-                else:
-                    raise web.HTTPError(500, "Image %s for user %s took too long to launch" % (image, username))
-
-        except HTTPError as e:
-            if e.response:
-                body = e.response.body
-            else:
-                body = ''
-
-            app_log.error("Error starting server{} for user {}: {}\n{}".
-                          format(_server_name, username, e, body))
-            raise web.HTTPError(500, "Failed to launch image %s" % image)
-
-        data['url'] = self.hub_url + 'user/%s/%s' % (username, server_name)
-        return data
-
-    from binderhub.launcher import Launcher
-    Launcher.check_user_projects = check_user_projects
-    Launcher.launch = launch
+    c.Launcher.pre_launch_hook = check_user_projects
 
 jupyterhub:
   hub:
