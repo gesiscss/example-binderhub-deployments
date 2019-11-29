@@ -1,7 +1,8 @@
-config:
-  BinderHub:
-    use_named_servers: true
-jupyterhub:
-  hub:
-    allowNamedServers: true
-    namedServerLimitPerUser: 2
+binderhub:
+  config:
+    BinderHub:
+      use_named_servers: true
+  jupyterhub:
+    hub:
+      allowNamedServers: true
+      namedServerLimitPerUser: 2
