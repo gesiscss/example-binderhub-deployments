@@ -7,6 +7,7 @@ binderhub:
       base_url: /services/binder/
 
   extraEnv:
+    # NOTE: when you change limit, update hub.templateVars.projects_limit too!
     - name: PROJECTS_LIMIT_PER_USER
       value: "3"
 
@@ -66,7 +67,7 @@ binderhub:
           c.JupyterHub.extra_handlers = [(r'/api/projects/([^/]+)', ProjectAPIHandler), ]
 
     singleuser:
-      events: true
+      events: true  # events_enabled - to get events from kubespawner
       storage:
         type: dynamic
         capacity: 5Gi

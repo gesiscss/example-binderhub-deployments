@@ -27,7 +27,7 @@ binderhub:
       hub_url: https://notebooks-test.gesis.org
       use_registry: true
       image_prefix: gesiscss/orc-example-binder-
-      build_image: jupyter/repo2docker:0.10.0-112.g242107b
+      build_image: jupyter/repo2docker:0.10.0-119.ga5f3cd9
       build_node_selector:
         user: worker
       per_repo_quota: 100
