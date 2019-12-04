@@ -19,15 +19,15 @@
 
 {% block main %}
 <div class="container">
-  <div id="projects-container">
-    {% block binder_header %}
-    <div id="header" class="text-center" style="border-bottom: 0; padding-bottom: 0;">
-{#      <h3>Turn a Git repo into a collection of interactive notebooks</h3>#}
-      <div id="explanation" style="font-weight: normal;">
-        Have a Binder-Ready repository? With GESIS Notebooks, turn this repository into a persistent Jupyter environment, allowing you to continue your work from anywhere at any time.
-      </div>
+  {% block binder_header %}
+  <div id="header" class="text-center" style="border-bottom: 0; padding-top: 12px;">
+  {#      <h3>Turn a Git repo into a collection of interactive notebooks</h3>#}
+    <div id="explanation" style="font-size: 1.8em;">
+      Have a Binder-Ready repository? With GESIS Notebooks, turn this repository into a persistent Jupyter environment, allowing you to continue your work from anywhere at any time.
     </div>
-    {% endblock binder_header %}
+  </div>
+  {% endblock binder_header %}
+  <div id="projects-container">
     <h4>Your Projects</h4>
     <div class="table-responsive">
      <table id="your-projects" class="table table-striped{% if not projects %} hidden{% endif %}">
@@ -107,7 +107,7 @@
 </div>
 
 <div id="main" class="container">
-  <div class="row form-group no-projects{% if projects %} hidden{% endif %}"></div>
+  <div class="row form-group"></div>
   <div class="row form-group no-projects{% if projects %} hidden{% endif %}"></div>
   <div class="row">
     <div class="col-lg-12">
@@ -248,6 +248,8 @@
     {% endblock binder_form %}
     </div>
   </div>
+  <div class="row form-group"></div>
+  <div class="row form-group"></div>
   {% block how_it_works %}
   <div id="how-it-works" style="font-weight: normal;">
     <h3 class="text-center" style="font-size: 32px;">How it works</h3>
@@ -273,6 +275,10 @@
     </div>
   </div>
   {% endblock how_it_works %}
+
+  <div class="row text-center">
+    <h3>questions?<br />read <a href="#">this post</a> and join the discussion</h3>
+  </div>
 </div>
 {% endblock %}
 
