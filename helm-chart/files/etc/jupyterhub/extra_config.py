@@ -35,28 +35,26 @@ class BinderSpawner(KubeSpawner):
         for attr in ('repo_url', 'ref', 'image'):
             self.__dict__.pop(attr, None)
 
-        # get last saved projects
-        projects = self.orm_spawner.state['projects']
-        # get list of projects to delete from disk before spawn in initContainer
-        deleted_projects = self.orm_spawner.state['deleted_projects']
-
         # get image spec from user_options
         if 'image' in self.user_options and \
-                'repo_url' in self.user_options and \
-                'token' in self.user_options:
+           'repo_url' in self.user_options and \
+           'token' in self.user_options:
             # binder service sets the image spec via user options
             # NOTE: user can pass any options through API (without using binder) too
             self.image = self.user_options['image']
             self.ref = self.image.split(':')[-1]
             self.repo_url = self.user_options['repo_url']  # repo_url is generated in bhub by repo providers
         else:
+            # get saved projects
+            projects = self.get_state_field('projects')
             if projects:
                 # user starts server without binder form (default)
-                # for example via spawn url or by refresing user page when server was stopped
+                # for example via spawn url or by refreshing user page when server was stopped
                 # launch last repo in projects
                 self.repo_url, self.image, self.ref, _ = projects[-1]
             else:
-                # if user has no projects (e.g. user makes first login, deletes default project and uses spawn url), start default repo
+                # if user has no projects (e.g. user makes first login, deletes default project
+                # and uses spawn url), start default repo
                 self.repo_url, self.image, self.ref = self.default_project
 
         # prepare initContainer
@@ -66,8 +64,12 @@ class BinderSpawner(KubeSpawner):
         # https://github.com/jupyterhub/kubespawner/blob/v0.8.1/kubespawner/spawner.py#L638-L664
         mount_path = '/projects/'
         # first it deletes projects on disk (if there are any to delete)
-        delete_cmd = f"rm -rf {' '.join([join(mount_path, self.url_to_dir(d)) for d in deleted_projects])}" if deleted_projects else ""
-        # then copies image's home folder (repo content after r2d process) into project's dir on disk (if project_path doesnt exists on persistent disk)
+        # get list of projects to delete from disk before spawn in initContainer
+        deleted_projects = self.get_state_field('deleted_projects')
+        delete_cmd = f"rm -rf {' '.join([join(mount_path, self.url_to_dir(d)) for d in deleted_projects])}" \
+                     if deleted_projects else ""
+        # then copies image's home folder (repo content after r2d process)
+        # into project's dir on disk (if project_path doesnt exists on persistent disk)
         project_dir = self.url_to_dir(self.repo_url)
         project_path = join(mount_path, project_dir)
         copy_cmd = f"if [ -d {project_path} ]; " \
@@ -85,6 +87,8 @@ class BinderSpawner(KubeSpawner):
             "volume_mounts": [projects_volume_mount],
         }]
 
+        # notebook container (user server)
+        # mount all projects (complete user disk) to /projects
         # https://kubernetes.io/docs/concepts/storage/volumes/#using-subpath
         self.volume_mounts.append(projects_volume_mount)
         # mountPath is /home/jovyan, this is set in z2jh helm chart values.yaml
@@ -98,7 +102,7 @@ class BinderSpawner(KubeSpawner):
         return super().start()
 
     def get_state_field(self, name):
-        # just get current value of a field in state, don't update thing in state
+        """Returns just current value of a field in state, doesn't update anything in state"""
         self.update_projects = False
         reset_deleted_projects = getattr(self, 'reset_deleted_projects', False)
         self.reset_deleted_projects = False
@@ -122,7 +126,8 @@ class BinderSpawner(KubeSpawner):
         state['projects'] = projects
         state['deleted_projects'] = deleted_projects
 
-        if getattr(self, 'update_projects', True) is True and hasattr(self, 'repo_url') and hasattr(self, 'image') and hasattr(self, 'ref'):
+        if getattr(self, 'update_projects', True) is True and \
+           hasattr(self, 'repo_url') and hasattr(self, 'image') and hasattr(self, 'ref'):
             # project is started or already running or is stopped,
             # so move project to the end and update the last launched time (last seen)
             from datetime import datetime
