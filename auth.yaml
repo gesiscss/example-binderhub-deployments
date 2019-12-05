@@ -10,18 +10,8 @@ binderhub:
         binder:
           oauth_redirect_uri: "https://notebooks-test.gesis.org/oauth_callback"
           oauth_client_id: "binder-oauth-client-test"
-
-      extraConfig:
-        binder: |
-          from kubespawner import KubeSpawner
-
-          class BinderSpawner(KubeSpawner):
-            def start(self):
-                if 'image' in self.user_options:
-                  # binder service sets the image spec via user options
-                  self.image = self.user_options['image']
-                return super().start()
-          c.JupyterHub.spawner_class = BinderSpawner
+    custom:
+      binderauth_enabled: true
 
     auth:
       type: github

@@ -5,13 +5,13 @@ import json
 from os.path import join
 from tornado import web
 from tornado.escape import json_decode
-from kubespawner import KubeSpawner
+# from jupyterhub_config import BinderSpawner
 from jupyterhub.utils import admin_only
 from jupyterhub.apihandlers.base import APIHandler
 from jupyterhub.apihandlers.users import admin_or_self
 
 
-class BinderSpawner(KubeSpawner):
+class PersistentBinderSpawner(BinderSpawner):
     default_project = ['https://github.com/gesiscss/data_science_image', 'gesiscss/singleuser-orc:r2d-dd93b3e', 'master']
 
     def strip_repo_url(self, repo_url):

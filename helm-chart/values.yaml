@@ -69,15 +69,14 @@ binderhub:
       authenticatePrometheus: false
       shutdownOnLogout: true
       extraConfig:
-        neverRestart: |
-          c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
-        bind_url: |
+        01-hub: |
           c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org'
-        hub_config: |
           if "cookie_options" in c.JupyterHub.tornado_settings:
             c.JupyterHub.tornado_settings["cookie_options"].update({"secure": True})
           else:
             c.JupyterHub.tornado_settings["cookie_options"] = dict(secure=True)
+        02-never-restart: |
+          c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
 
       resources:
         requests:
