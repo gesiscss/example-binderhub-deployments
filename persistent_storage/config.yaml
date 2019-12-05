@@ -61,7 +61,7 @@ binderhub:
         # set pod restart_policy back to default value OnFailure
         02-never-restart: |
           c.KubeSpawner.extra_pod_config.update({'restart_policy': 'OnFailure'})
-        10-binder-customisations: |
+        00-binder: |
           from extra_config import PersistentBinderSpawner, ProjectAPIHandler
           c.JupyterHub.spawner_class = PersistentBinderSpawner
           c.JupyterHub.extra_handlers = [(r'/api/projects/([^/]+)', ProjectAPIHandler), ]
