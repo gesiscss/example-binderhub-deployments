@@ -4,27 +4,27 @@ binderhub:
       auth_enabled: true
 
   jupyterhub:
+    cull:
+      # don't cull authenticated users
+      users: False
+    custom:
+      binderauth_enabled: true
     hub:
       redirectToServer: false
       services:
         binder:
           oauth_redirect_uri: "https://notebooks-test.gesis.org/oauth_callback"
           oauth_client_id: "binder-oauth-client-test"
-    custom:
-      binderauth_enabled: true
+
+    singleuser:
+      # to make notebook servers aware of hub
+      cmd: jupyterhub-singleuser
 
     auth:
       type: github
       github:
-        # to make notebook servers aware of hub
         callbackUrl: "https://notebooks-test.gesis.org/hub/oauth_callback"
       scopes:
         - "read:user"
       admin:
         users: ['bitnik', 'arnim']
-
-    singleuser:
-      cmd: jupyterhub-singleuser
-
-    cull:
-      users: False
