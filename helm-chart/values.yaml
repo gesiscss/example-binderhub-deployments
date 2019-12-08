@@ -2,7 +2,6 @@ binderhub:
   pdb:
     minAvailable: 0
   replicas: 1
-
   resources:
     requests:
       cpu: "0.25"
@@ -12,26 +11,15 @@ binderhub:
       memory: 1Gi
 
   config:
-    GitHubRepoProvider:
-      # Add banned repositories to the list below
-      # They should be strings that will match "^<org-name>/<repo-name>.*"
-      banned_specs:
-        # e.g. '^org/repo.*'
-        - ^ines/spacy-binder.*
-        - ^soft4voip/rak.*
-        - ^hmharshit/cn-ait.*
-        - ^shishirchoudharygic/mltraining.*
-        - ^hmharshit/mltraining.*
     BinderHub:
       debug: true
       hub_url: https://notebooks-test.gesis.org
-      use_registry: true
-      image_prefix: gesiscss/orc-example-binder-
-      build_image: jupyter/repo2docker:0.10.0-119.ga5f3cd9
-      build_node_selector:
-        user: worker
       per_repo_quota: 100
       per_repo_quota_higher: 200
+      image_prefix: gesiscss/orc-example-binder-
+      build_image: jupyter/repo2docker:0.10.0-123.gf79bf04
+      build_node_selector:
+        user: worker
 
   service:
     annotations:
@@ -64,7 +52,6 @@ binderhub:
       service:
         annotations:
           prometheus.io/scrape: 'false'
-
       redirectToServer: false
       authenticatePrometheus: false
       shutdownOnLogout: true
@@ -77,7 +64,6 @@ binderhub:
             c.JupyterHub.tornado_settings["cookie_options"] = dict(secure=True)
         02-never-restart: |
           c.KubeSpawner.extra_pod_config.update({'restart_policy': 'Never'})
-
       resources:
         requests:
           cpu: "0.25"
