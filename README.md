@@ -9,6 +9,8 @@ Deployment:
 kubectl create namespace bhub-example-ns
 
 cd example-binderhub-deployments
+helm repo add jupyterhub https://jupyterhub.github.io/helm-chart/
+helm repo update
 helm dependency update helm-chart
 
 # plain bhub

@@ -7,9 +7,9 @@ binderhub:
       base_url: /services/binder/
 
   extraEnv:
-    # NOTE: when you change limit, update hub.templateVars.projects_limit too!
+    # NOTE: when you change limit, update hub.templateVars.projects_limit too
     - name: PROJECTS_LIMIT_PER_USER
-      value: "3"
+      value: "5"
 
   extraConfig:
     00-launcher:  |
@@ -36,7 +36,7 @@ binderhub:
   jupyterhub:
     hub:
       templateVars:
-        projects_limit: "3"
+        projects_limit: "5"
         announcement_home: "User has to go to <a href='https://notebooks-test.gesis.org/services/binder/' target='_blank'>https://notebooks-test.gesis.org/services/binder/</a> and confirm that Binder service can identify the user with user's JupyterHub account (A service is attempting to authorize with your JupyterHub account). Otherwise nothing works in this page."
       extraVolumes:
         - name: hub-templates
