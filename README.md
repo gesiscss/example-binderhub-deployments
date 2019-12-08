@@ -37,6 +37,7 @@ helm upgrade --install --namespace=bhub-example-ns bhub-example helm-chart \
 # to delete
 helm delete --purge bhub-example
 kubectl delete namespace bhub-example-ns
+
 ```
 
 `secret.yaml` looks like:
