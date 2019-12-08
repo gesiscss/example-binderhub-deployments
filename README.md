@@ -31,7 +31,7 @@ helm upgrade --install --namespace=bhub-example-ns bhub-example helm-chart \
     
 # with auth and persistent storage
 helm upgrade --install --namespace=bhub-example-ns bhub-example helm-chart \
-    -f auth.yaml -f persistent_storage/config.yaml -f secret.yaml \
+    -f auth.yaml -f persistent_storage.yaml -f secret.yaml \
     --wait --force --debug --timeout=360 
 
 # to delete
