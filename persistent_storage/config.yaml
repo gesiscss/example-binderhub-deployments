@@ -35,9 +35,13 @@ binderhub:
 
   jupyterhub:
     hub:
+      # TODO rm this when there is new z2jh chart with jhub 1.0.1
+      image:
+        # z2jh chart jupyterhub-0.9.0-alpha.1.088.1350ad7 with jupyterhub `git+https://github.com/jupyterhub/jupyterhub@abb93ad` installed
+        name: gesiscss/k8s-hub-temp
+        tag: 'abb93ad'
       templateVars:
         projects_limit: "5"
-        announcement_home: "User has to go to <a href='https://notebooks-test.gesis.org/services/binder/' target='_blank'>https://notebooks-test.gesis.org/services/binder/</a> and confirm that Binder service can identify the user with user's JupyterHub account (A service is attempting to authorize with your JupyterHub account). Otherwise nothing works in this page."
       extraVolumes:
         - name: hub-templates
           configMap:
@@ -55,6 +59,7 @@ binderhub:
         binder:
           url: http://194.95.75.9:30193  # base worker
           oauth_redirect_uri: "https://notebooks-test.gesis.org/services/binder/oauth_callback"
+          oauth_no_confirm: true
       templatePaths:
         - "/etc/jupyterhub/templates"
       extraConfig:
