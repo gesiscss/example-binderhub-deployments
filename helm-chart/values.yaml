@@ -34,7 +34,7 @@ binderhub:
   dind:
     enabled: true
     hostSocketDir: /var/run/dind_example
-    hostLibDir: /var/lib/dind_example
+    hostLibDir: /ssd/dind_example
 
   imageCleaner:
     enabled: false
