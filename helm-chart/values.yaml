@@ -58,7 +58,6 @@ binderhub:
       shutdownOnLogout: true
       extraConfig:
         01-hub: |
-          c.JupyterHub.bind_url = 'https://notebooks-test.gesis.org'
           if "cookie_options" in c.JupyterHub.tornado_settings:
             c.JupyterHub.tornado_settings["cookie_options"].update({"secure": True})
           else:
