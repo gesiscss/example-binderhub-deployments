@@ -306,7 +306,7 @@ require(["jquery", "jhapi", "moment"], function($, JHAPI, moment) {
       success: function() {
         $("#stop").hide();
         var ref = $('#stop').data('ref');
-        $('#last-used-'+ref).text(moment().calendar());
+        $('#last-used-'+ref).text(moment());
         // change text from "My Server" to "Launch" and make all launch buttons visible
         $('.project-launch').attr('href', '#').text('Launch').removeClass('btn-primary').addClass('btn-warning').removeClass('hidden');
         $('.project-delete').removeClass('hidden');
