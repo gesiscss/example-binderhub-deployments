@@ -43,16 +43,16 @@
             {% for project in projects %}
             <tr>
                 {% set repo_display_name = '/'.join(project[0].rstrip('/').split('://', 1)[-1].split('/', 2)[-2:]) %}
+                {% set project_running = loop.index == loop.length and user.running %}
+                {% set project_active = loop.index == loop.length and user.spawner.active %}
+                {% set project_not_active = user.spawner._stop_pending or (user.spawner.active and loop.index != loop.length) %}
                 <td style="vertical-align: middle;"><a href="{{ project[0] }}" target="_blank">{{ repo_display_name }}</a></td>
                 <td style="vertical-align: middle;">{{ project[2][:7] }}</td>
-                <td style="vertical-align: middle;" class="time-col">{{ project[3] }}</td>
+                <td style="vertical-align: middle;" id="last-used-{{ project[2] }}" class="time-col">{% if project_running %}Running{% else %}{{ project[3] }}{% endif %}</td>
                 <td style="vertical-align: middle;">
-                    {% set project_running = loop.index == loop.length and user.running %}
-                    {% set project_active = loop.index == loop.length and user.spawner.active %}
-                    {% set project_not_active = user.spawner._stop_pending or (user.spawner.active and loop.index != loop.length) %}
                     {% if project_running %}
                     {# last element in projects is currently running, add Stop button for it #}
-                    <a id="stop" role="button" class="btn btn-sm btn-danger">Stop</a>
+                    <a id="stop" role="button" class="btn btn-sm btn-danger" data-ref="{{ project[2] }}">Stop</a>
                     {% endif %}
                     {# add launch button for each element, if user has no server running #}
                     {# if last element is running, hide launch buttons of all other elements #}
@@ -300,11 +300,13 @@ require(["jquery", "jhapi", "moment"], function($, JHAPI, moment) {
            .click(function() {
                return false;
            });
-    // hide next launch button
+    // hide next launch ("My Server") button
     $(this).next('a').addClass('hidden');
     api.stop_server(user, {
       success: function() {
         $("#stop").hide();
+        var ref = $('#stop').data('ref');
+        $('#last-used-'+ref).text(moment().calendar());
         // change text from "My Server" to "Launch" and make all launch buttons visible
         $('.project-launch').attr('href', '#').text('Launch').removeClass('btn-primary').addClass('btn-warning').removeClass('hidden');
         $('.project-delete').removeClass('hidden');
