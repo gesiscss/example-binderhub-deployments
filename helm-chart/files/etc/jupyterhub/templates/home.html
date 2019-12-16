@@ -48,7 +48,7 @@
                 {% set project_not_active = user.spawner._stop_pending or (user.spawner.active and loop.index != loop.length) %}
                 <td style="vertical-align: middle;"><a href="{{ project[0] }}" target="_blank">{{ repo_display_name }}</a></td>
                 <td style="vertical-align: middle;">{{ project[2][:7] }}</td>
-                <td style="vertical-align: middle;" id="last-used-{{ project[2] }}" class="time-col">{% if project_running %}Running{% else %}{{ project[3] }}{% endif %}</td>
+                <td style="vertical-align: middle;" id="last-used-{{ project[2] }}" class="time-col">{% if project_running %}running{% else %}{{ project[3] }}{% endif %}</td>
                 <td style="vertical-align: middle;">
                     {% if project_running %}
                     {# last element in projects is currently running, add Stop button for it #}
@@ -306,7 +306,7 @@ require(["jquery", "jhapi", "moment"], function($, JHAPI, moment) {
       success: function() {
         $("#stop").hide();
         var ref = $('#stop').data('ref');
-        $('#last-used-'+ref).text(moment());
+        $('#last-used-'+ref).text(moment().calendar());
         // change text from "My Server" to "Launch" and make all launch buttons visible
         $('.project-launch').attr('href', '#').text('Launch').removeClass('btn-primary').addClass('btn-warning').removeClass('hidden');
         $('.project-delete').removeClass('hidden');
@@ -319,9 +319,11 @@ require(["jquery", "jhapi", "moment"], function($, JHAPI, moment) {
   $(".time-col").map(function (i, el) {
     // convert ISO datestamps to nice momentjs ones
     el = $(el);
-    let m = moment(new Date(el.text().trim()));
-    //el.text(m.isValid() ? m.fromNow() : "never");
-    el.text(m.isValid() ? m.calendar(): "never");
+    if (el.text() !== "running" ) {
+        let m = moment(new Date(el.text().trim()));
+        //el.text(m.isValid() ? m.fromNow() : "never");
+        el.text(m.isValid() ? m.calendar(): "never");
+    }
   });
 });
 
