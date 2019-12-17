@@ -76,7 +76,7 @@ binderhub:
       pdb:
         minAvailable: 0
       https:
-        enablde: false
+        enabled: false
       service:
         type: NodePort
         nodePorts:
