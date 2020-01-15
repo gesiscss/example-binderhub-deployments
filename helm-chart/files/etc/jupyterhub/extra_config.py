@@ -42,7 +42,7 @@ class PersistentBinderSpawner(KubeSpawner):
             provider_prefix = 'gl'
         else:
             provider_prefix = 'git'
-        path = url_parts.path
+        path = url_parts.path.strip('/')
         display_name = f'{provider_prefix}/{path}'
         return display_name
 
